@@ -1,8 +1,15 @@
+name: Data Platform CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
     
-    # Заглушки, чтобы dbt не ругался на отсутствие паролей при проверке
     env:
       SNOWFLAKE_ACCOUNT: "dummy"
       SNOWFLAKE_USER: "dummy"
