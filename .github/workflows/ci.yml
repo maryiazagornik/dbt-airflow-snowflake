@@ -37,7 +37,7 @@ jobs:
       # 4. Install libraries (dbt, linter)
       - name: Install dependencies
         run: |
-          uv pip install --system dbt-snowflake==1.8.3 sqlfluff>=3.0.0 astronomer-cosmos==1.7.0 sqlfluff-templater-dbt
+          pip install dbt-snowflake==1.8.3 astronomer-cosmos==1.7.0 sqlfluff sqlfluff-templater-dbt
 
       # 5. Install dbt dependencies (dbt_utils)
       - name: Install dbt packages
