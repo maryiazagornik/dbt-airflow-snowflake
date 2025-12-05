@@ -1,0 +1,26 @@
+version: '3'
+services:
+  airflow:
+    build: .
+    container_name: de_airflow
+    command: standalone 
+    ports:
+      - "8080:8080"
+    
+    env_file:
+      - .env
+      
+    environment:
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+      
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      DBT_PROFILES_DIR: /opt/airflow/dbt_project
+      
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dbt_project:/opt/airflow/dbt_project
+      - ./libs:/opt/airflow/libs
+      - ./logs:/opt/airflow/logs

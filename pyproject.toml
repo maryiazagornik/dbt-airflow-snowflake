@@ -1,0 +1,29 @@
+[project]
+name = "dbt-airflow-snowflake"
+version = "0.1.0"
+description = "Monorepo for Airflow + DBT + Snowflake (Data Vault)"
+requires-python = ">=3.10"
+dependencies = [
+    "apache-airflow>=2.8.0",
+    "dbt-snowflake>=1.7.0",
+    "astronomer-cosmos>=1.2.5",
+    "loguru>=0.7.0",
+    "sqlfluff>=3.0.0",
+    "python-dotenv>=1.0.0"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+    "pre-commit"
+]
+
+[tool.sqlfluff.core]
+dialect = "snowflake"
+templater = "dbt"
+runaway_limit = 10
+max_line_length = 120
+
+[tool.sqlfluff.templater.dbt]
+project_dir = "./dbt_project"
+profiles_dir = "./dbt_project"
