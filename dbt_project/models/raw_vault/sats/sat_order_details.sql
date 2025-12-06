@@ -1,7 +1,7 @@
 {{ config(materialized='incremental', unique_key='ORDER_PK') }}
 
 WITH source AS (
-    SELECT 
+    SELECT
         MD5(CAST(O_ORDERKEY AS VARCHAR)) AS ORDER_PK,
         O_TOTALPRICE,
         O_ORDERSTATUS,
@@ -14,5 +14,5 @@ WITH source AS (
 
 SELECT * FROM source
 {% if is_incremental() %}
-WHERE HASHDIFF NOT IN (SELECT HASHDIFF FROM {{ this }})
+    WHERE HASHDIFF NOT IN (SELECT HASHDIFF FROM {{ this }})
 {% endif %}

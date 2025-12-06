@@ -11,5 +11,5 @@ SELECT DISTINCT
 FROM {{ ref('stg_orders') }}
 
 {% if is_incremental() %}
-WHERE ORDER_PK NOT IN (SELECT ORDER_PK FROM {{ this }})
+    WHERE ORDER_PK NOT IN (SELECT ORDER_PK FROM {{ this }})
 {% endif %}
