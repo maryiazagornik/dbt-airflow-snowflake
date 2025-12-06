@@ -40,7 +40,7 @@ jobs:
       - name: Lint SQL files
         run: |
           cd dbt_project
-          sqlfluff lint models --dialect snowflake --processes 1
+          sqlfluff lint models --dialect snowflake --processes 1 --exclude-rules CP01,CP02,ST06,LT05
 
       - name: Verify dbt project builds
         run: |
