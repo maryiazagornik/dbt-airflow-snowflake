@@ -30,7 +30,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install dbt-snowflake==1.8.3 astronomer-cosmos==1.7.0 sqlfluff==3.0.0 sqlfluff-templater-dbt==3.0.0
+          pip install dbt-snowflake==1.8.3 astronomer-cosmos==1.7.0 sqlfluff==3.3.0 sqlfluff-templater-dbt==3.3.0
 
       - name: Install dbt packages
         run: |
