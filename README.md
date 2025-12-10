@@ -1,104 +1,63 @@
-# Data Vault Platform: Airflow + dbt + Snowflake
+# Snowflake Analytics (Data Vault 2.0)
 
-A modern, containerized **ELT platform** built to demonstrate **Data Vault 2.0** methodology. It ingests raw data into Snowflake, transforms it using dbt, and is fully orchestrated by Apache Airflow.
-
-![CI Status](https://img.shields.io/badge/CI-Passing-success?style=flat-square&logo=github-actions)
-![Python](https://img.shields.io/badge/Python-3.10-blue?style=flat-square&logo=python)
-![Docker](https://img.shields.io/badge/Docker-Enabled-blue?style=flat-square&logo=docker)
-
----
-
-## Tech Stack
-
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| **Orchestrator** | **Apache Airflow** | Dockerized setup. Uses `astronomer-cosmos` to render dbt models as DAG tasks. |
-| **Transformation** | **dbt Core (v1.8)** | Handles ELT logic, testing, and documentation. |
-| **Warehouse** | **Snowflake** | Cloud Data Warehouse for storage and compute. |
-| **Methodology** | **Data Vault 2.0** | Raw Vault modeling (Hubs, Links, Satellites). |
-| **Quality & CI** | **SQLFluff** | SQL linting and auto-formatting via GitHub Actions. |
-| **Manager** | **uv** | Ultra-fast Python package manager. |
-
----
-
-## Architecture (Data Vault)
-
-The pipeline transforms raw data through the following layers:
-
-1.  **Staging (`stg_`)**: Cleans raw data and generates **MD5 Hash Keys** for Data Vault entities.
-2.  **Raw Vault**:
-    * **Hubs (`hub_`)**: Stores unique list of business keys (e.g., Order IDs).
-    * **Links (`link_`)**: Stores relationships/transactions (e.g., Customer bought Order).
-    * **Satellites (`sat_`)**: Stores descriptive attributes and history (e.g., Price, Status, Date).
-
----
-
-## Quick Start (The Magic)
-
-This project uses a `Makefile` to simplify Docker and dbt commands.
-
-### 1. Prerequisites
-* Docker Desktop (running)
-* Git
-* Make (optional, but recommended)
-
-### 2. Configure Credentials
-Create a `.env` file in the root directory with your Snowflake credentials:
-
-```ini
-SNOWFLAKE_ACCOUNT=xy12345
-SNOWFLAKE_USER=your_user
-SNOWFLAKE_PASSWORD=your_password
-SNOWFLAKE_ROLE=ACCOUNTADMIN
-SNOWFLAKE_WAREHOUSE=COMPUTE_WH
-SNOWFLAKE_DATABASE=ANALYTICS
-SNOWFLAKE_SCHEMA=RAW_VAULT
-DBT_PROFILES_DIR=dbt_project
-```
-
-### 3. Run the Platform
-Start the entire infrastructure with one command:
-
-```bash
-make up
-```
-
-* **Airflow UI:** [http://localhost:8080](http://localhost:8080)
-* **Credentials:** `admin` / `admin`
-
----
-
-## Available Commands
-
-| Command | Description |
-| :--- | :--- |
-| `make up` | Start Airflow and the database in the background |
-| `make down` | Stop and remove all containers |
-| `make logs` | View Airflow logs in real-time |
-| `make lint` | Check SQL style using **SQLFluff** |
-| `make fix` | Auto-fix SQL style errors |
-| `make restart` | Full restart (down + up) |
-
----
+This project implements a Data Warehouse using **Data Vault 2.0** architecture, orchestrated by **Airflow** and transformed using **dbt** (Data Build Tool) on **Snowflake**.
 
 ## Project Structure
 
-```text
-.
-├── airflow/               # Airflow configuration & DAGs
-│   └── dags/              # dbt_pipeline.py (Cosmos integration)
-├── dbt_project/           # dbt Transformation logic
-│   ├── models/            # SQL Models (Hubs, Links, Sats)
-│   └── seeds/             # Mock data (CSVs)
-├── .github/workflows/     # CI/CD Pipelines
-├── docker-compose.yaml    # Infrastructure definition
-└── Makefile               # Command shortcuts
+The project follows the standard Data Vault 2.0 layers:
+
+* **Staging (`models/staging`):** View layer. Responsible for column aliasing, data type casting, and HashDiff calculation.
+* **Raw Vault (`models/raw_vault`):** Incremental tables.
+    * **Hubs & Links:** Business keys and relationships.
+    * **Satellites:** Split into *Immutable* (e.g., dates, priority) and *Mutable* (e.g., status, price) data to optimize storage and history tracking.
+* **Marts (`models/marts`):** Presentation layer (Facts & Dimensions) for BI tools.
+
+## Prerequisites
+
+* Docker & Docker Compose
+* Snowflake Account
+* Make (optional, for using Makefile shortcuts)
+
+## Setup & Installation
+
+### 1. Environment Configuration
+Create a `.env` file from the example template. This file will store your sensitive credentials and is excluded from Git.
+
+```bash
+cp .env.example .env
 ```
 
-## CI/CD Automation
+**Important:** Open `.env` and fill in your Snowflake credentials (`SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, etc.) and Airflow settings.
 
-Every push to the `main` branch triggers a **GitHub Action** that:
+### 2. Start Services
+Build and start the Airflow container in detached mode:
 
-1.  Installs dependencies via `pip`.
-2.  Lints all SQL code using `sqlfluff` (Snowflake dialect).
-3.  Verifies the integrity of the project using `dbt parse`.
+```bash
+make up
+# Or standard docker command:
+# docker-compose up -d --build
+```
+### 4. Access Airflow
+Once started, access the Airflow UI:
+
+* **URL:** http://localhost:8080
+* **Credentials:** See `_AIRFLOW_WWW_USER_USERNAME` / `PASSWORD` in your `.env` file.
+
+## Development
+
+### Linting
+We use **SQLFluff** to ensure code quality and style consistency.
+
+```bash
+make lint
+```
+
+### Testing
+Run dbt data tests:
+
+```bash
+make dbt-test
+```
+
+## CI/CD
+GitHub Actions workflow is configured in `.github/workflows/dbt_ci.yml` to run linting and models on pull requests. It uses GitHub Secrets for Snowflake authentication.
