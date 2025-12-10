@@ -4,12 +4,16 @@
 ) }}
 
 SELECT DISTINCT
-    ORDER_PK,
-    ORDER_ID,
-    LOAD_DATE,
-    RECORD_SOURCE
-FROM {{ ref('stg_orders') }}
+    source.ORDER_PK,
+    source.ORDER_ID,
+    source.LOAD_DATE,
+    source.RECORD_SOURCE
+FROM {{ ref('stg_orders') }} AS source
 
 {% if is_incremental() %}
-    WHERE ORDER_PK NOT IN (SELECT ORDER_PK FROM {{ this }})
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM {{ this }} AS target
+        WHERE target.ORDER_PK = source.ORDER_PK
+    )
 {% endif %}

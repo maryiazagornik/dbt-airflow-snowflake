@@ -1,16 +1,78 @@
 services:
-  airflow:
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+
+  airflow-init:
     build: .
-    container_name: de_airflow
-    command: standalone
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "airflow db migrate &&
+      airflow users create
+      --username admin
+      --password admin
+      --firstname Admin
+      --lastname User
+      --role Admin
+      --email admin@example.com
+      || true"
+
+  airflow-webserver:
+    build: .
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
     ports:
       - "8080:8080"
-    
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     env_file:
       - .env
-      
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./dbt_project:/opt/airflow/dbt_project
       - ./libs:/opt/airflow/libs
       - ./logs:/opt/airflow/logs
+    command: webserver
+
+  airflow-scheduler:
+    build: .
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    env_file:
+      - .env
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dbt_project:/opt/airflow/dbt_project
+      - ./libs:/opt/airflow/libs
+      - ./logs:/opt/airflow/logs
+    command: scheduler
+
+volumes:
+  postgres_data:

@@ -1,5 +1,5 @@
 DC = docker-compose
-EXEC = docker exec -it de_airflow
+EXEC = $(DC) exec airflow-scheduler 
 DBT_DIR = --profiles-dir /opt/airflow/dbt_project --project-dir /opt/airflow/dbt_project
 
 .PHONY: up down restart bash dbt-run dbt-test dbt-docs lint clean
