@@ -1,28 +1,31 @@
-.PHONY: up down restart logs lint fix dbt-docs
+DC = docker-compose
+EXEC = docker exec -it de_airflow
+DBT_DIR = --profiles-dir /opt/airflow/dbt_project --project-dir /opt/airflow/dbt_project
 
+.PHONY: up down restart bash dbt-run dbt-test dbt-docs lint clean
 
 up:
-	docker-compose up -d
+	$(DC) up -d --build
 
 down:
-	docker-compose down
+	$(DC) down
 
 restart: down up
 
+bash:
+	$(EXEC) bash
 
-logs:
-	docker-compose logs -f airflow
+dbt-run:
+	$(EXEC) dbt run $(DBT_DIR)
 
-lint: 
-	uv run sqlfluff lint dbt_project/models --dialect snowflake --exclude-rules CP01,CP02,ST06,LT05
+dbt-test:
+	$(EXEC) dbt test $(DBT_DIR)
 
-fix: 
-	uv run sqlfluff fix dbt_project/models --dialect snowflake --exclude-rules CP01,CP02,ST06,LT05 --force
+dbt-docs:
+	$(EXEC) dbt docs generate $(DBT_DIR)
 
-dbt-check:
-	cd dbt_project && uv run dbt parse
+lint:
+	$(EXEC) sqlfluff lint /opt/airflow/dbt_project/models --config /opt/airflow/dbt_project/.sqlfluff
 
-
-help: 
-	@echo "Usage: make [target]"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
+clean:
+	$(EXEC) dbt clean $(DBT_DIR)
