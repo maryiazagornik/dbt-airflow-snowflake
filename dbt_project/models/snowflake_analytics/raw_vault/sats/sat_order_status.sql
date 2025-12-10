@@ -11,19 +11,19 @@ WITH source_data AS (
         LOAD_DATE,
         RECORD_SOURCE,
         HASHDIFF_STATUS
-    FROM {{ ref('stg_orders') }}
+    FROM {{ ref('stg_orders') }} AS src
     {% if is_incremental() %}
-        WHERE LOAD_DATE > (SELECT MAX(LOAD_DATE) FROM {{ this }})
+        WHERE src.LOAD_DATE > (SELECT MAX(t.LOAD_DATE) FROM {{ this }} AS t)
     {% endif %}
 )
 
-SELECT * FROM source_data AS s
+SELECT * FROM source_data
 {% if is_incremental() %}
     WHERE NOT EXISTS (
         SELECT 1
         FROM {{ this }} AS t
         WHERE
-            t.ORDER_PK = s.ORDER_PK
-            AND t.HASHDIFF_STATUS = s.HASHDIFF_STATUS
+            t.ORDER_PK = source_data.ORDER_PK
+            AND t.HASHDIFF_STATUS = source_data.HASHDIFF_STATUS
     )
 {% endif %}

@@ -12,9 +12,9 @@ WITH source_data AS (
         LOAD_DATE,
         RECORD_SOURCE,
         HASHDIFF_DETAILS
-    FROM {{ ref('stg_orders') }}
+    FROM {{ ref('stg_orders') }} AS src
     {% if is_incremental() %}
-        WHERE LOAD_DATE > (SELECT MAX(LOAD_DATE) FROM {{ this }})
+        WHERE src.LOAD_DATE > (SELECT MAX(t.LOAD_DATE) FROM {{ this }} AS t)
     {% endif %}
 )
 

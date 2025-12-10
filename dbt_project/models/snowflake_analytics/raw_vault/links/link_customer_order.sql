@@ -11,7 +11,7 @@ WITH source AS (
     WHERE O_ORDERDATE <= DATE('1992-01-31')
 )
 
-SELECT * FROM source
+SELECT * FROM source AS s
 {% if is_incremental() %}
-    WHERE LINK_PK NOT IN (SELECT LINK_PK FROM {{ this }})
+    WHERE s.LINK_PK NOT IN (SELECT t.LINK_PK FROM {{ this }} AS t)
 {% endif %}
