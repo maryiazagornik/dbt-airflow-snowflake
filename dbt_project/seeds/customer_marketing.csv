@@ -1,0 +1,6 @@
+CUSTOMER_ID,MARKETING_GROUP,VIP_STATUS
+1,High Spenders,TRUE
+2,Average Joes,FALSE
+3,New Comers,FALSE
+4,High Spenders,TRUE
+5,Churn Risk,FALSE
