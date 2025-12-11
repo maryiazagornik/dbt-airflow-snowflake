@@ -27,3 +27,4 @@ SELECT * FROM source_data AS s
         WHERE t.ORDER_PK = s.ORDER_PK
     )
 {% endif %}
+-- fix column name
