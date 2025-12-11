@@ -58,7 +58,7 @@ jobs:
       - name: Run dbt Models
         run: |
           cd dbt_project
-          dbt run
+          dbt run --full-refresh
 
       - name: Test dbt Models
         run: |
