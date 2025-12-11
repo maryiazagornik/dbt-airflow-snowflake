@@ -9,6 +9,7 @@ WITH source_data AS (
         ORDER_DATE,
         ORDER_PRIORITY,
         O_CLERK,
+        TOTAL_PRICE,
         LOAD_DATE,
         RECORD_SOURCE,
         HASHDIFF_DETAILS
