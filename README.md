@@ -1,100 +1,104 @@
 # Snowflake Data Vault Analytics
 
-![CI Status](https://github.com/<YOUR_USERNAME>/<YOUR_REPO>/actions/workflows/ci.yml/badge.svg)
+This repository implements a Data Vault 2.0 analytics platform on Snowflake. Orchestration is handled by Apache Airflow (with Astronomer Cosmos integration) and transformations are performed with dbt Core. The infrastructure is containerized with Docker and Docker Compose.
 
-Проект реализует хранилище данных архитектуры **Data Vault 2.0** на базе **Snowflake**. Оркестрация выполняется через **Apache Airflow** (с интеграцией Astronomer Cosmos), трансформация данных — через **dbt Core**. Инфраструктура полностью контейнеризирована.
+## Architecture
 
-## Архитектура
+The project follows a layered Data Vault architecture:
 
-Проект следует многослойной архитектуре Data Vault:
+- **Staging (`models/staging`)**: Data cleansing, key hashing (MD5), and type casting.
+- **Raw Vault (`models/raw_vault`)**: Incremental loading of vault objects:
+    - **Hubs**: Business keys.
+    - **Links**: Relationships between entities.
+    - **Satellites**: Attribute history (mutable vs immutable separation).
+- **Business Vault (`models/business_vault`)**: Computed satellites and business logic (e.g., effectivity satellites).
+- **Marts (`models/marts`)**: BI-ready marts and reporting layers.
 
-* **Staging (`models/staging`):** Очистка данных, хеширование ключей (MD5), типизация.
-* **Raw Vault (`models/raw_vault`):** Инкрементальная загрузка.
-    * *Hubs:* Бизнес-ключи.
-    * *Links:* Связи между сущностями.
-    * *Satellites:* Атрибутивный состав (разделение на Mutable/Immutable).
-* **Business Vault (`models/business_vault`):** Вычисляемые сателлиты и бизнес-логика (например, Effectivity Satellites).
-* **Marts (`models/marts`):** Витрины данных для BI.
+## Tech Stack
 
-## Технологический стек
+- **Warehouse:** Snowflake
+- **Orchestration:** Apache Airflow (tested with Airflow 2.10) + Astronomer Cosmos
+- **Transformations:** dbt Core (tested with v1.8)
+- **Environment:** Docker & Docker Compose
+- **Package manager:** `uv` (optional)
+- **CI/CD:** GitHub Actions
+- **SQL linting:** SQLFluff
 
-* **СУБД:** Snowflake
-* **Оркестрация:** Airflow 2.10 + Astronomer Cosmos
-* **Трансформация:** dbt Core v1.8
-* **Среда:** Docker & Docker Compose
-* **Управление пакетами:** uv
-* **CI/CD:** GitHub Actions
-* **Линтинг:** SQLFluff
-
-## Структура проекта
+## Project Structure
 
 ```text
 .
-├── airflow/                 # Конфигурации Airflow
-├── dags/                    # Определения DAG (включая Cosmos)
-├── dbt_project/             # Основной проект dbt
-│   ├── models/              # SQL логика (Staging, Vault, Marts)
-│   ├── seeds/               # Справочники (CSV)
-│   ├── tests/               # Тесты качества данных
-│   └── dbt_project.yml      # Конфигурация dbt
-├── .github/workflows/       # CI/CD пайплайны
-├── Dockerfile               # Кастомный образ Airflow
-├── docker-compose.yaml      # Описание сервисов
-└── Makefile                 # Команды управления
+├── airflow/                 # Airflow configs and plugins
+│   └── dags/                # DAG definitions (including Cosmos integration)
+├── dbt_project/             # dbt project: models, seeds, tests
+├── .github/workflows/       # CI/CD pipelines
+├── docker-compose.yaml      # Docker Compose stack
+└── Makefile                 # Convenience commands
 ```
 
-## Установка и запуск
+## Installation and Run
 
-### 1. Предварительные требования
+### 1. Prerequisites
 
-* Docker & Docker Compose
-* Make (опционально, но рекомендуется)
-* Учетная запись Snowflake
+- Docker Desktop
+- Git
+- (Optional) Make
+- Snowflake account and credentials
 
-### 2. Конфигурация
+### 2. Configuration
 
-Создайте файл `.env` в корне проекта на основе примера.
+Copy the example environment file and fill in your Snowflake credentials:
 
 ```bash
 cp .env.example .env
 ```
 
-Заполните `.env` вашими учетными данными от Snowflake (`SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER` и т.д.).
+Fill in the `.env` values for `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, etc.
 
-### 3. Запуск
+### 3. Start the platform
 
-Сборка образов и запуск контейнеров:
+Build and start the containers:
 
 ```bash
 make up
-# Или вручную: docker-compose up -d --build
+# Or manually:
+docker-compose up -d --build
 ```
 
-### 4. Доступ к интерфейсам
+### 4. Web UIs
 
-* **Airflow UI:** http://localhost:8080 (Login: `airflow` / Password: `airflow`)
-* **Документация dbt:** http://localhost:8001 (после запуска команды генерации)
+- Airflow UI: http://localhost:8080 (default creds may be `airflow` / `airflow`)
+- dbt documentation server (after docs generation): http://localhost:8001
 
-## Использование
+## Usage (Makefile)
 
-В проекте настроен `Makefile` для быстрого выполнения команд внутри контейнера.
+Common commands provided via the `Makefile`:
 
-| Команда | Описание |
+| Command | Description |
 | :--- | :--- |
-| `make up` | Сборка и запуск окружения. |
-| `make down` | Остановка всех контейнеров. |
-| `make dbt-full` | Полный цикл: установка зависимостей -> seeds -> run -> test. |
-| `make dbt-run` | Запуск только dbt моделей. |
-| `make dbt-test` | Запуск тестов данных. |
-| `make lint` | Проверка стиля SQL кода (SQLFluff). |
-| `make dbt-docs-gen` | Генерация документации. |
-| `make dbt-docs-serve` | Запуск веб-сервера документации (Lineage Graph). |
+| `make up` | Build and start the environment |
+| `make down` | Stop and remove containers |
+| `make logs` | Tail Airflow logs |
+| `make lint` | Run SQLFluff linter |
+| `make fix` | Auto-fix SQLFluff issues |
+| `make dbt-full` | Install deps, run seeds, run models, run tests |
+| `make dbt-run` | Run dbt models only |
+| `make dbt-test` | Run dbt tests |
+| `make dbt-docs-gen` | Generate dbt documentation |
+| `make dbt-docs-serve` | Serve generated dbt docs |
 
-## CI/CD Pipeline
+## CI/CD
 
-Workflow в GitHub Actions (`.github/workflows/ci.yml`) запускается при каждом Pull Request и выполняет:
+The repository contains a GitHub Actions workflow (`.github/workflows/ci.yml`) that runs on pull requests and typically performs:
 
-1.  **Linting:** Проверка стиля кода через SQLFluff.
-2.  **Connection Test:** Проверка соединения со Snowflake (`dbt debug`).
-3.  **Execution:** Полная пересборка моделей (`dbt run --full-refresh`) для проверки целостности схемы.
-4.  **Testing:** Запуск тестов данных (`dbt test`).
+1. SQL linting with SQLFluff (Snowflake dialect).
+2. dbt environment checks (`dbt debug`).
+3. dbt parsing and optional `dbt run --full-refresh` for validation in CI.
+4. dbt tests (`dbt test`).
+
+## Notes
+
+- Update your `.env` and `profiles.yml` as needed for local development or CI.
+- Adjust Airflow and dbt versions in the Dockerfile/pyproject if you require different versions.
+
+If you want, I can also add an English README badge section and example `.env` snippet converted to a fenced `ini` block.
