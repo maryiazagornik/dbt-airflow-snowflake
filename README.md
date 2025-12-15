@@ -1,104 +1,135 @@
-# Snowflake Data Vault Analytics
+# Snowflake Data Vault Project
 
-This repository implements a Data Vault 2.0 analytics platform on Snowflake. Orchestration is handled by Apache Airflow (with Astronomer Cosmos integration) and transformations are performed with dbt Core. The infrastructure is containerized with Docker and Docker Compose.
+This repository implements a **Data Vault 2.0** architecture on Snowflake, orchestrated by **Apache Airflow** and **Astronomer Cosmos**.
 
-## Architecture
+## Architecture Overview
 
-The project follows a layered Data Vault architecture:
+The project follows a multi-layer Data Vault architecture:
 
-- **Staging (`models/staging`)**: Data cleansing, key hashing (MD5), and type casting.
-- **Raw Vault (`models/raw_vault`)**: Incremental loading of vault objects:
-    - **Hubs**: Business keys.
-    - **Links**: Relationships between entities.
-    - **Satellites**: Attribute history (mutable vs immutable separation).
-- **Business Vault (`models/business_vault`)**: Computed satellites and business logic (e.g., effectivity satellites).
-- **Marts (`models/marts`)**: BI-ready marts and reporting layers.
+1.  **Staging:** Raw data ingestion and hashing (MD5).
+2.  **Raw Vault:** Hubs, Links, and Satellites (including Split Satellites for variable/invariant attributes).
+3.  **Business Vault:** Point-in-Time (PIT) tables and computed satellites (e.g., Effectivity Satellites).
+4.  **Marts:** Dimensional modeling (Star Schema) for analytics.
 
 ## Tech Stack
 
-- **Warehouse:** Snowflake
-- **Orchestration:** Apache Airflow (tested with Airflow 2.10) + Astronomer Cosmos
-- **Transformations:** dbt Core (tested with v1.8)
-- **Environment:** Docker & Docker Compose
-- **Package manager:** `uv` (optional)
-- **CI/CD:** GitHub Actions
-- **SQL linting:** SQLFluff
+* **Data Warehouse:** Snowflake
+* **Orchestration:** Apache Airflow (via Astronomer Cosmos)
+* **Transformation:** dbt Core (v1.7+)
+* **Language:** Python 3.10+
+* **Linting:** SQLFluff
 
-## Project Structure
+## Configuration
 
-```text
-.
-├── airflow/                 # Airflow configs and plugins
-│   └── dags/                # DAG definitions (including Cosmos integration)
-├── dbt_project/             # dbt project: models, seeds, tests
-├── .github/workflows/       # CI/CD pipelines
-├── docker-compose.yaml      # Docker Compose stack
-└── Makefile                 # Convenience commands
-```
+1.  **Environment Variables:**
+    Copy the example configuration file:
+    ```bash
+    cp .env.example .env
+    ```
 
-## Installation and Run
+2.  **Credentials:**
+    Edit `.env` and fill in your Snowflake credentials:
+    * `SNOWFLAKE_ACCOUNT`
+    * `SNOWFLAKE_USER`
+    * `SNOWFLAKE_PASSWORD`
+    * `TELEGRAM_BOT_TOKEN` (Optional: for pipeline alerts)
 
-### 1. Prerequisites
+## Usage
 
-- Docker Desktop
-- Git
-- (Optional) Make
-- Snowflake account and credentials
+### Option A: Using Make (Linux / Mac / WSL)
 
-### 2. Configuration
+The project includes a `Makefile` with convenience commands to manage Docker and dbt operations.
 
-Copy the example environment file and fill in your Snowflake credentials:
+#### Prerequisites for Make
 
-```bash
-cp .env.example .env
-```
+* Make installed (`brew install make` on Mac, or `apt-get install make` on Linux)
+* Docker and Docker Compose running
 
-Fill in the `.env` values for `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, etc.
-
-### 3. Start the platform
-
-Build and start the containers:
+#### Quick Start with Make
 
 ```bash
+# 1. Build images (first time only)
+make build
+
+# 2. Start the project
 make up
-# Or manually:
-docker-compose up -d --build
+
+# 3. Check logs
+make logs
+
+# 4. Run dbt transformations
+make dbt-full
+
+# 5. Generate and serve documentation
+make dbt-docs-gen
+make dbt-docs-serve
+# Then visit http://localhost:8001
 ```
 
-### 4. Web UIs
-
-- Airflow UI: http://localhost:8080 (default creds may be `airflow` / `airflow`)
-- dbt documentation server (after docs generation): http://localhost:8001
-
-## Usage (Makefile)
-
-Common commands provided via the `Makefile`:
+#### Available Make Commands
 
 | Command | Description |
 | :--- | :--- |
-| `make up` | Build and start the environment |
-| `make down` | Stop and remove containers |
-| `make logs` | Tail Airflow logs |
-| `make lint` | Run SQLFluff linter |
-| `make fix` | Auto-fix SQLFluff issues |
-| `make dbt-full` | Install deps, run seeds, run models, run tests |
-| `make dbt-run` | Run dbt models only |
-| `make dbt-test` | Run dbt tests |
-| `make dbt-docs-gen` | Generate dbt documentation |
-| `make dbt-docs-serve` | Serve generated dbt docs |
+| `make help` | Display all available commands. |
+| `make build` | Build Docker images. |
+| `make up` | Start all containers in detached mode. |
+| `make down` | Stop and remove all containers. |
+| `make restart` | Restart (equivalent to `make down` + `make up`). |
+| `make logs` | Stream logs from Airflow scheduler. |
+| `make dbt-full` | Run full dbt build (seeds → run → test). |
+| `make dbt-deps` | Install dbt dependencies. |
+| `make dbt-seed` | Load seed data. |
+| `make dbt-run` | Run dbt models only. |
+| `make dbt-test` | Run dbt tests. |
+| `make dbt-docs-gen` | Generate dbt documentation. |
+| `make dbt-docs-serve` | Serve dbt docs locally at `http://localhost:8001`. |
+| `make lint` | Lint SQL code with SQLFluff. |
+| `make clean` | Clean dbt artifacts and dependencies. |
+| `make bash` | Open a bash shell in the scheduler container. |
 
-## CI/CD
+### Option B: Using Docker Compose (Windows / PowerShell)
 
-The repository contains a GitHub Actions workflow (`.github/workflows/ci.yml`) that runs on pull requests and typically performs:
+If `make` is not available, use the following commands directly in PowerShell/CMD:
 
-1. SQL linting with SQLFluff (Snowflake dialect).
-2. dbt environment checks (`dbt debug`).
-3. dbt parsing and optional `dbt run --full-refresh` for validation in CI.
-4. dbt tests (`dbt test`).
+**1. Build and Start**
+```powershell
+docker compose build
+docker compose up -d
+```
+Access Airflow UI at http://localhost:8080 (User: airflow, Pass: airflow)
 
-## Notes
+### 2. Stop Project
+```powershell
+docker compose down
+```
 
-- Update your `.env` and `profiles.yml` as needed for local development or CI.
-- Adjust Airflow and dbt versions in the Dockerfile/pyproject if you require different versions.
+### 3. Run dbt Manually (Inside Container)
+```bash
+docker compose exec airflow-scheduler dbt build --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project
+```
 
-If you want, I can also add an English README badge section and example `.env` snippet converted to a fenced `ini` block.
+### 4. Generate Documentation
+```bash
+# Generate docs
+docker compose exec airflow-scheduler dbt docs generate --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project
+
+# Serve docs (then visit http://localhost:8001)
+docker compose run --rm -p 8001:8080 --entrypoint "dbt docs serve --port 8080 --address 0.0.0.0 --no-browser --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project" airflow-scheduler
+```
+
+## Development & Linting
+
+SQL linting is configured via `sqlfluff` using the Jinja templater (offline mode).
+
+**Prerequisites:**
+* `uv` (or pip)
+
+**Run Linter:**
+
+```bash
+# Sync dependencies
+uv sync
+
+# Lint all models
+uv run sqlfluff lint dbt_project/models
+```
