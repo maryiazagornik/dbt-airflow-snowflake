@@ -1,7 +1,11 @@
 {{ config(materialized='view') }}
 
 SELECT
+    {{ dbt_utils.generate_surrogate_key(['O_ORDERKEY']) }} as ORDER_PK,
+    {{ dbt_utils.generate_surrogate_key(['O_CUSTKEY']) }} as CUSTOMER_PK,
+    
     O_ORDERKEY AS ORDER_ID,
+    O_CUSTKEY AS CUSTOMER_ID,
     O_ORDERDATE AS LOAD_DATE,
     'SNOWFLAKE_SAMPLE' AS RECORD_SOURCE,
     O_TOTALPRICE AS TOTAL_PRICE,
@@ -12,4 +16,5 @@ SELECT
     O_SHIPPRIORITY AS SHIP_PRIORITY,
     O_COMMENT AS ORDER_COMMENT
 FROM {{ source('tpch', 'orders') }}
-WHERE O_ORDERDATE <= DATE('1992-01-31')
+
+WHERE O_ORDERDATE <= DATE('1998-01-01')
