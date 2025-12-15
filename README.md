@@ -16,115 +16,103 @@ The project follows a multi-layer Data Vault architecture:
 * **Data Warehouse:** Snowflake
 * **Orchestration:** Apache Airflow (via Astronomer Cosmos)
 * **Transformation:** dbt Core (v1.7+)
-* **Language:** Python 3.10+
+* **Language:** Python 3.10+ (managed via `uv`)
 * **Linting:** SQLFluff
+* **Alerting:** Telegram Bot (Real-time success/failure notifications)
 
 ## Configuration
 
-1.  **Environment Variables:**
-    Copy the example configuration file:
-    ```bash
-    cp .env.example .env
-    ```
+### 1. Environment
+Copy the example env file and edit it:
 
-2.  **Credentials:**
-    Edit `.env` and fill in your Snowflake credentials:
-    * `SNOWFLAKE_ACCOUNT`
-    * `SNOWFLAKE_USER`
-    * `SNOWFLAKE_PASSWORD`
-    * `TELEGRAM_BOT_TOKEN` (Optional: for pipeline alerts)
+```bash
+cp .env.example .env
+```
+
+### 2. Credentials
+Edit `.env` and fill in your Snowflake credentials and optional Telegram fields. Example:
+
+```ini
+# Snowflake
+SNOWFLAKE_ACCOUNT=your_account
+SNOWFLAKE_USER=your_user
+SNOWFLAKE_PASSWORD=your_password
+SNOWFLAKE_ROLE=your_role
+SNOWFLAKE_WAREHOUSE=your_warehouse
+SNOWFLAKE_DATABASE=your_database
+SNOWFLAKE_SCHEMA=your_schema
+
+# Optional: Telegram alerts
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
 
 ## Usage
 
-### Option A: Using Make (Linux / Mac / WSL)
+You can run the project with `make` (Linux / Mac / WSL) or using Docker Compose directly (Windows / PowerShell).
 
-The project includes a `Makefile` with convenience commands to manage Docker and dbt operations.
+### Option A — Using `make`
 
-#### Prerequisites for Make
-
-* Make installed (`brew install make` on Mac, or `apt-get install make` on Linux)
-* Docker and Docker Compose running
-
-#### Quick Start with Make
+Quick start with `make`:
 
 ```bash
-# 1. Build images (first time only)
+# Build images (first run)
 make build
 
-# 2. Start the project
+# Start services in background
 make up
 
-# 3. Check logs
+# Tail Airflow scheduler logs
 make logs
 
-# 4. Run dbt transformations
+# Run full dbt build (seeds -> models -> tests)
 make dbt-full
 
-# 5. Generate and serve documentation
+# Generate and serve dbt docs
 make dbt-docs-gen
 make dbt-docs-serve
-# Then visit http://localhost:8001
 ```
 
-#### Available Make Commands
+Common Makefile commands (see `Makefile` for exact targets):
 
 | Command | Description |
 | :--- | :--- |
-| `make help` | Display all available commands. |
-| `make build` | Build Docker images. |
-| `make up` | Start all containers in detached mode. |
-| `make down` | Stop and remove all containers. |
-| `make restart` | Restart (equivalent to `make down` + `make up`). |
-| `make logs` | Stream logs from Airflow scheduler. |
-| `make dbt-full` | Run full dbt build (seeds → run → test). |
-| `make dbt-deps` | Install dbt dependencies. |
-| `make dbt-seed` | Load seed data. |
-| `make dbt-run` | Run dbt models only. |
-| `make dbt-test` | Run dbt tests. |
-| `make dbt-docs-gen` | Generate dbt documentation. |
-| `make dbt-docs-serve` | Serve dbt docs locally at `http://localhost:8001`. |
-| `make lint` | Lint SQL code with SQLFluff. |
-| `make clean` | Clean dbt artifacts and dependencies. |
-| `make bash` | Open a bash shell in the scheduler container. |
+| `make help` | Show available commands |
+| `make build` | Build Docker images |
+| `make up` | Start containers (detached) |
+| `make down` | Stop and remove containers |
+| `make logs` | Stream Airflow scheduler logs |
+| `make dbt-full` | Run full dbt build |
+| `make dbt-run` | Run dbt models only |
+| `make dbt-test` | Run dbt tests |
+| `make dbt-docs-gen` | Generate dbt docs |
+| `make dbt-docs-serve` | Serve dbt docs locally |
+| `make lint` | Run SQLFluff linter |
 
-### Option B: Using Docker Compose (Windows / PowerShell)
+### Option B — Using Docker Compose (PowerShell)
 
-If `make` is not available, use the following commands directly in PowerShell/CMD:
-
-**1. Build and Start**
 ```powershell
 docker compose build
 docker compose up -d
-```
-Access Airflow UI at http://localhost:8080 (User: airflow, Pass: airflow)
 
-### 2. Stop Project
-```powershell
+# Stop services
 docker compose down
-```
 
-### 3. Run dbt Manually (Inside Container)
-```bash
+# Run dbt inside the scheduler container
 docker compose exec airflow-scheduler dbt build --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project
-```
 
-### 4. Generate Documentation
-```bash
 # Generate docs
 docker compose exec airflow-scheduler dbt docs generate --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project
 
-# Serve docs (then visit http://localhost:8001)
+# Serve docs (visit http://localhost:8001)
 docker compose run --rm -p 8001:8080 --entrypoint "dbt docs serve --port 8080 --address 0.0.0.0 --no-browser --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project" airflow-scheduler
 ```
 
+**Airflow UI:** http://localhost:8080 (default user/password: `airflow` / `airflow`)
+
 ## Development & Linting
 
-SQL linting is configured via `sqlfluff` using the Jinja templater (offline mode).
-
-**Prerequisites:**
-* `uv` (or pip)
-
-**Run Linter:**
+SQL linting is configured via `sqlfluff` with the Jinja templater. Example:
 
 ```bash
 # Sync dependencies
