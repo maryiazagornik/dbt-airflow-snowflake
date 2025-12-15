@@ -5,10 +5,10 @@ WITH raw_sat AS (
 ),
 
 seed_data AS (
-    SELECT 
-        CUSTOMER_ID, 
-        MARKETING_GROUP, 
-        VIP_STATUS 
+    SELECT
+        CUSTOMER_ID,
+        MARKETING_GROUP,
+        VIP_STATUS
     FROM {{ ref('customer_marketing') }}
 )
 
@@ -20,17 +20,18 @@ SELECT
     r.ACCOUNT_BALANCE,
     s.MARKETING_GROUP,
     s.VIP_STATUS,
-    
+
     {{ hash_diff(['r.CUSTOMER_ADDRESS', 'r.ACCOUNT_BALANCE', 's.MARKETING_GROUP']) }} AS HASHDIFF_BIZ
 
-FROM raw_sat r
-LEFT JOIN {{ ref('stg_customer') }} stg ON r.CUSTOMER_PK = stg.CUSTOMER_PK
-LEFT JOIN seed_data s ON stg.CUSTOMER_ID = s.CUSTOMER_ID
+FROM raw_sat AS r
+LEFT JOIN {{ ref('stg_customer') }} AS stg ON r.CUSTOMER_PK = stg.CUSTOMER_PK
+LEFT JOIN seed_data AS s ON stg.CUSTOMER_ID = s.CUSTOMER_ID
 
 {% if is_incremental() %}
     WHERE NOT EXISTS (
         SELECT 1 FROM {{ this }} AS t
-        WHERE t.CUSTOMER_PK = r.CUSTOMER_PK
-          AND t.HASHDIFF_BIZ = {{ hash_diff(['r.CUSTOMER_ADDRESS', 'r.ACCOUNT_BALANCE', 's.MARKETING_GROUP']) }}
+        WHERE
+            t.CUSTOMER_PK = r.CUSTOMER_PK
+            AND t.HASHDIFF_BIZ = {{ hash_diff(['r.CUSTOMER_ADDRESS', 'r.ACCOUNT_BALANCE', 's.MARKETING_GROUP']) }}
     )
 {% endif %}

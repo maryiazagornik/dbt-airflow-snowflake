@@ -3,15 +3,19 @@ from pathlib import Path
 from datetime import datetime
 from airflow import DAG
 from airflow.models import Variable
-from cosmos import DbtDag, ProjectConfig, ProfileConfig, ExecutionConfig
+from cosmos import (
+    DbtTaskGroup,
+    ProjectConfig,
+    ProfileConfig,
+    ExecutionConfig,
+    RenderConfig,
+)
 
-# Путь к папке dbt_project внутри контейнера
 DBT_ROOT_PATH = Path("/opt/airflow/dbt_project")
 
-# Функция, которая достает настройки из Airflow Variable (JSON)
+
 def get_env():
     try:
-        # Пытаемся взять переменную snowflake_config, которую ты создала в UI
         config = Variable.get("snowflake_config", deserialize_json=True)
         return {
             "SNOWFLAKE_ACCOUNT": config.get("account"),
@@ -23,32 +27,53 @@ def get_env():
             "SNOWFLAKE_SCHEMA": config.get("schema"),
         }
     except Exception:
-        # Если переменной нет, fallback на системные переменные
         return dict(os.environ)
 
-# Конфигурация профиля: используем profiles.yml, а НЕ маппинг подключений
+
 profile_config = ProfileConfig(
-    profile_name="snowflake_analytics",   # Должно совпадать с именем в dbt_project.yml
-    target_name="dev",                    # Должно совпадать с именем outputs в profiles.yml
-    profiles_yml_filepath=DBT_ROOT_PATH / "profiles.yml", # Явный путь к файлу
+    profile_name="snowflake_analytics",
+    target_name="dev",
+    profiles_yml_filepath=DBT_ROOT_PATH / "profiles.yml",
 )
 
+execution_config = ExecutionConfig(
+    dbt_executable_path="dbt",
+)
 
-my_dbt_dag = DbtDag(
-    project_config=ProjectConfig(
-        dbt_project_path=DBT_ROOT_PATH,
-    ),
-    profile_config=profile_config,
-    execution_config=ExecutionConfig(
-        dbt_executable_path="dbt",
-    ),
-
-    operator_args={
-        "env": get_env(),
-    },
-    dag_id="snowflake_data_vault",
+with DAG(
+    dag_id="snowflake_data_vault_modular",
     start_date=datetime(2023, 1, 1),
     schedule_interval="@daily",
     catchup=False,
     tags=["dbt", "snowflake", "vault"],
-)
+) as dag:
+    dbt_env = get_env()
+
+    staging_tg = DbtTaskGroup(
+        group_id="staging",
+        project_config=ProjectConfig(DBT_ROOT_PATH),
+        profile_config=profile_config,
+        execution_config=execution_config,
+        render_config=RenderConfig(select=["tag:staging"], env_vars=dbt_env),
+        operator_args={"env": dbt_env},
+    )
+
+    raw_vault_tg = DbtTaskGroup(
+        group_id="raw_vault",
+        project_config=ProjectConfig(DBT_ROOT_PATH),
+        profile_config=profile_config,
+        execution_config=execution_config,
+        render_config=RenderConfig(select=["tag:raw_vault"], env_vars=dbt_env),
+        operator_args={"env": dbt_env},
+    )
+
+    marts_tg = DbtTaskGroup(
+        group_id="marts",
+        project_config=ProjectConfig(DBT_ROOT_PATH),
+        profile_config=profile_config,
+        execution_config=execution_config,
+        render_config=RenderConfig(select=["tag:marts"], env_vars=dbt_env),
+        operator_args={"env": dbt_env},
+    )
+
+    staging_tg >> raw_vault_tg >> marts_tg

@@ -20,8 +20,20 @@ models:
     staging:
       +materialized: view
       +schema: staging
+      +tags: ["staging"]
+
+    raw_vault:
+      +materialized: incremental
+      +schema: raw_vault
+
+      hubs:
+        +tags: ["raw_vault", "hub"]
+      links:
+        +tags: ["raw_vault", "link"]
+      sats:
+        +tags: ["raw_vault", "sat"]
+
     marts:
       +materialized: table
       +schema: marts
-    raw_vault:
-      +materialized: incremental
+      +tags: ["marts"]

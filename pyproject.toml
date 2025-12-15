@@ -16,7 +16,7 @@ dependencies = [
 [tool.uv]
 dev-dependencies = [
     "pytest",
-    "pre-commit"
+    "pre-commit",
 ]
 
 [tool.sqlfluff.core]
@@ -29,3 +29,10 @@ exclude_rules = "CP01,CP02,ST06,LT05"
 [tool.sqlfluff.templater.dbt]
 project_dir = "./dbt_project"
 profiles_dir = "./dbt_project"
+
+[tool.sqlfluff.indentation]
+tab_space_size = 4
+
+[tool.sqlfluff.layout.type.comma]
+spacing_before = "touch"
+line_position = "trailing"
