@@ -1,39 +1,29 @@
-name: 'snowflake_analytics'
-version: '1.0.0'
-config-version: 2
-
-profile: 'snowflake_analytics'
-
-model-paths: ["models"]
-analysis-paths: ["analyses"]
-test-paths: ["tests"]
-seed-paths: ["seeds"]
-macro-paths: ["macros"]
-snapshot-paths: ["snapshots"]
-
-clean-targets:
-  - "target"
-  - "dbt_packages"
-
 models:
   snowflake_analytics:
-    staging:
-      +materialized: view
-      +schema: staging
-      +tags: ["staging"]
+    snowflake_analytics:
+      
+      staging:
+        +materialized: view
+        +schema: staging
+        +tags: ["staging"]
 
-    raw_vault:
-      +materialized: incremental
-      +schema: raw_vault
+      raw_vault:
+        +materialized: incremental
+        +schema: raw_vault
+        
+        hubs:
+          +tags: ["raw_vault", "hub"]
+        links:
+          +tags: ["raw_vault", "link"]
+        sats:
+          +tags: ["raw_vault", "sat"]
 
-      hubs:
-        +tags: ["raw_vault", "hub"]
-      links:
-        +tags: ["raw_vault", "link"]
-      sats:
-        +tags: ["raw_vault", "sat"]
-
-    marts:
-      +materialized: table
-      +schema: marts
-      +tags: ["marts"]
+      marts:
+        +materialized: table
+        +schema: marts
+        +tags: ["marts"]
+      
+      business_vault:
+        +materialized: incremental
+        +schema: business_vault
+        +tags: ["business_vault"]
