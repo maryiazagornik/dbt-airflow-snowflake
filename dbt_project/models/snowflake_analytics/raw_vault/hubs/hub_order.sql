@@ -16,7 +16,7 @@ WITH source_data AS (
 SELECT * FROM source_data
 {% if is_incremental() %}
     WHERE LOAD_DATE > (
-        SELECT COALESCE(MAX(LOAD_DATE), '1900-01-01'::date) 
+        SELECT COALESCE(MAX(LOAD_DATE), '1900-01-01'::date)
         FROM {{ this }}
     )
 {% endif %}
