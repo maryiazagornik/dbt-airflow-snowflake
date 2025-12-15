@@ -1,24 +1,22 @@
 {{ config(
     materialized='incremental',
-    unique_key=['ORDER_PK', 'LOAD_DATE', 'RECORD_SOURCE'],
-    incremental_strategy='merge',
-    tags=['raw_vault', 'hub']
+    unique_key=['ORDER_PK', 'LOAD_DATE'],
+    incremental_strategy='merge'
 ) }}
 
-with src as (
-    select
-        ORDER_ID as BK_ORDER_ID,
-        RECORD_SOURCE,
+WITH source_data AS (
+    SELECT
+        SHA2(COALESCE(TO_VARCHAR(ORDER_ID), ''), 256) AS ORDER_PK,
+        ORDER_ID,
         LOAD_DATE,
-        sha2(coalesce(to_varchar(ORDER_ID), ''), 256) as ORDER_PK
-    from {{ ref('stg_orders') }}
+        RECORD_SOURCE
+    FROM {{ ref('stg_orders') }}
 )
 
-select * from src
-
+SELECT * FROM source_data
 {% if is_incremental() %}
-    where LOAD_DATE > (
-        select coalesce(max(t.LOAD_DATE), '1900-01-01'::date)
-        from {{ this }} as t
+    WHERE LOAD_DATE > (
+        SELECT COALESCE(MAX(LOAD_DATE), '1900-01-01'::date) 
+        FROM {{ this }}
     )
 {% endif %}
