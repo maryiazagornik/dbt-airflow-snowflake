@@ -5,7 +5,7 @@
 ) }}
 
 WITH source_data AS (
-    SELECT
+    SELECT  
         SHA2(COALESCE(TO_VARCHAR(ORDER_ID), ''), 256) AS ORDER_PK,
         ORDER_ID,
         LOAD_DATE,
