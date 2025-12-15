@@ -2,14 +2,14 @@
 
 WITH source_link AS (
     SELECT
-        LINK_PK,
+        LINK_CUSTOMER_ORDER_PK,
         LOAD_DATE,
         RECORD_SOURCE
     FROM {{ ref('link_customer_order') }}
 )
 
 SELECT
-    LINK_PK,
+    LINK_CUSTOMER_ORDER_PK,
 
     LOAD_DATE AS START_DATE,
 
