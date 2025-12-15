@@ -3,16 +3,9 @@ from pathlib import Path
 from datetime import datetime
 from airflow import DAG
 from airflow.models import Variable
-from cosmos import (
-    DbtTaskGroup,
-    ProjectConfig,
-    ProfileConfig,
-    ExecutionConfig,
-    RenderConfig,
-)
+from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, ExecutionConfig, RenderConfig
 
 DBT_ROOT_PATH = Path("/opt/airflow/dbt_project")
-
 
 def get_env():
     try:
@@ -28,7 +21,6 @@ def get_env():
         }
     except Exception:
         return dict(os.environ)
-
 
 profile_config = ProfileConfig(
     profile_name="snowflake_analytics",
@@ -47,6 +39,7 @@ with DAG(
     catchup=False,
     tags=["dbt", "snowflake", "vault"],
 ) as dag:
+
     dbt_env = get_env()
 
     staging_tg = DbtTaskGroup(
@@ -54,7 +47,10 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(select=["tag:staging"], env_vars=dbt_env),
+        render_config=RenderConfig(
+            select=["tag:staging"], 
+            env_vars=dbt_env
+        ),
         operator_args={"env": dbt_env},
     )
 
@@ -63,7 +59,22 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(select=["tag:raw_vault"], env_vars=dbt_env),
+        render_config=RenderConfig(
+            select=["tag:raw_vault"],
+            env_vars=dbt_env
+        ),
+        operator_args={"env": dbt_env},
+    )
+
+    business_vault_tg = DbtTaskGroup(
+        group_id="business_vault",
+        project_config=ProjectConfig(DBT_ROOT_PATH),
+        profile_config=profile_config,
+        execution_config=execution_config,
+        render_config=RenderConfig(
+            select=["tag:business_vault"],
+            env_vars=dbt_env
+        ),
         operator_args={"env": dbt_env},
     )
 
@@ -72,8 +83,12 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(select=["tag:marts"], env_vars=dbt_env),
+        render_config=RenderConfig(
+            select=["tag:marts"],
+            env_vars=dbt_env
+        ),
         operator_args={"env": dbt_env},
     )
 
-    staging_tg >> raw_vault_tg >> marts_tg
+    staging_tg >> raw_vault_tg >> business_vault_tg >> marts_tg
+    
