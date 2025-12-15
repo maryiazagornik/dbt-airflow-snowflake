@@ -1,11 +1,30 @@
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.models import Variable
-from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, ExecutionConfig, RenderConfig
+from cosmos import (
+    DbtTaskGroup,
+    ProjectConfig,
+    ProfileConfig,
+    ExecutionConfig,
+    RenderConfig,
+)
+
+try:
+    from utils.telegram_alert import on_failure_callback, on_success_callback
+except ImportError:
+    print("Module utils.telegram_alert not found. Alerts will be disabled.")
+
+    def on_failure_callback(context):
+        pass
+
+    def on_success_callback(context):
+        pass
+
 
 DBT_ROOT_PATH = Path("/opt/airflow/dbt_project")
+
 
 def get_env():
     try:
@@ -22,6 +41,7 @@ def get_env():
     except Exception:
         return dict(os.environ)
 
+
 profile_config = ProfileConfig(
     profile_name="snowflake_analytics",
     target_name="dev",
@@ -32,14 +52,22 @@ execution_config = ExecutionConfig(
     dbt_executable_path="dbt",
 )
 
+default_args = {
+    "owner": "airflow",
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
+    "on_failure_callback": on_failure_callback,
+}
+
 with DAG(
     dag_id="snowflake_data_vault_modular",
     start_date=datetime(2023, 1, 1),
     schedule_interval="@daily",
     catchup=False,
+    default_args=default_args,
+    on_success_callback=on_success_callback,
     tags=["dbt", "snowflake", "vault"],
 ) as dag:
-
     dbt_env = get_env()
 
     staging_tg = DbtTaskGroup(
@@ -47,10 +75,7 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(
-            select=["tag:staging"], 
-            env_vars=dbt_env
-        ),
+        render_config=RenderConfig(select=["tag:staging"], env_vars=dbt_env),
         operator_args={"env": dbt_env},
     )
 
@@ -59,10 +84,7 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(
-            select=["tag:raw_vault"],
-            env_vars=dbt_env
-        ),
+        render_config=RenderConfig(select=["tag:raw_vault"], env_vars=dbt_env),
         operator_args={"env": dbt_env},
     )
 
@@ -71,10 +93,7 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(
-            select=["tag:business_vault"],
-            env_vars=dbt_env
-        ),
+        render_config=RenderConfig(select=["tag:business_vault"], env_vars=dbt_env),
         operator_args={"env": dbt_env},
     )
 
@@ -83,12 +102,8 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(
-            select=["tag:marts"],
-            env_vars=dbt_env
-        ),
+        render_config=RenderConfig(select=["tag:marts"], env_vars=dbt_env),
         operator_args={"env": dbt_env},
     )
 
     staging_tg >> raw_vault_tg >> business_vault_tg >> marts_tg
-    
