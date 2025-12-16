@@ -36,7 +36,6 @@ def send_telegram_message(context, status):
         logger.warning("Telegram credentials not found. Skipping alert.")
         return
 
-    # Данные из контекста Airflow
     dag_id = context.get("task_instance").dag_id
     task_id = context.get("task_instance").task_id
     execution_date = context.get("execution_date")
