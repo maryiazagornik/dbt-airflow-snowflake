@@ -4,6 +4,7 @@ from loguru import logger
 from airflow.models import TaskInstance
 from utils.constants import LOG_FILE_PATH
 
+
 logger.remove()
 logger.add(
     sys.stderr,
@@ -38,3 +39,10 @@ def log_failure_callback(context: dict[str, Any]) -> None:
     ti: TaskInstance = context.get("task_instance")
     exception = context.get("exception")
     log.error(f"❌ Task Failed: {ti.task_id} | DAG: {ti.dag_id} | Error: {exception}")
+
+
+def log_dag_success_callback(context: dict[str, Any]) -> None:
+    """Логирование успеха всего DAG"""
+    dag_run = context.get("dag_run")
+    dag_id = dag_run.dag_id if dag_run else "unknown_dag"
+    log.success(f"🏆 DAG Finished Successfully: {dag_id}")
