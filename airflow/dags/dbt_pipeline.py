@@ -7,9 +7,11 @@ from cosmos import (
     ExecutionConfig,
     RenderConfig,
 )
+from cosmos.constants import LoadMode
 from utils.constants import DBT_ROOT_PATH, PROFILES_FILEPATH
 from utils.get_creds import get_snowflake_config
 from utils.telegram_message import on_failure_callback, on_success_callback
+
 
 dbt_env = get_snowflake_config()
 
@@ -30,6 +32,11 @@ default_args = {
     "on_failure_callback": on_failure_callback,
 }
 
+
+def create_render_config(tag):
+    return RenderConfig(select=[f"tag:{tag}"], load_method=LoadMode.DBT_LS)
+
+
 with DAG(
     dag_id="snowflake_data_vault_modular",
     start_date=datetime(2023, 1, 1),
@@ -44,7 +51,7 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(select=["tag:staging"]),
+        render_config=create_render_config("staging"),
         operator_args={"env": dbt_env},
     )
 
@@ -53,7 +60,7 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(select=["tag:raw_vault"]),
+        render_config=create_render_config("raw_vault"),
         operator_args={"env": dbt_env},
     )
 
@@ -62,7 +69,7 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(select=["tag:business_vault"]),
+        render_config=create_render_config("business_vault"),
         operator_args={"env": dbt_env},
     )
 
@@ -71,7 +78,7 @@ with DAG(
         project_config=ProjectConfig(DBT_ROOT_PATH),
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(select=["tag:marts"]),
+        render_config=create_render_config("marts"),
         operator_args={"env": dbt_env},
     )
 

@@ -6,7 +6,7 @@ from utils.dbt_logger import log
 def get_snowflake_config():
     try:
         config = Variable.get("snowflake_config", deserialize_json=True)
-        log.info("Snowflake credentials successfully retrieved from Airflow Variables.")
+        log.info("Credentials retrieved from Airflow Variables")
         return {
             "SNOWFLAKE_ACCOUNT": config.get("account"),
             "SNOWFLAKE_USER": config.get("user"),
@@ -17,7 +17,5 @@ def get_snowflake_config():
             "SNOWFLAKE_SCHEMA": config.get("schema"),
         }
     except Exception as e:
-        log.warning(
-            f"Airflow Variable 'snowflake_config' not found ({e}). Falling back to ENV vars."
-        )
+        log.warning(f"Using environment variables: {e}")
         return dict(os.environ)
