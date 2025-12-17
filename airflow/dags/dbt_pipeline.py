@@ -1,16 +1,24 @@
 from datetime import datetime, timedelta
+from typing import Any
+
 from airflow import DAG
 from cosmos import (
     DbtTaskGroup,
-    ProjectConfig,
-    ProfileConfig,
     ExecutionConfig,
+    ProfileConfig,
+    ProjectConfig,
     RenderConfig,
 )
 from cosmos.constants import LoadMode
+
 from utils.constants import DBT_ROOT_PATH, PROFILES_FILEPATH
+from utils.dbt_logger import (
+    log_dag_success_callback,
+    log_failure_callback,
+    log_start_callback,
+    log_success_callback,
+)
 from utils.get_creds import get_snowflake_config
-from utils.telegram_message import on_failure_callback, on_success_callback
 
 
 dbt_env = get_snowflake_config()
@@ -21,21 +29,19 @@ profile_config = ProfileConfig(
     profiles_yml_filepath=PROFILES_FILEPATH,
 )
 
-execution_config = ExecutionConfig(
-    dbt_executable_path="dbt",
-)
-
-default_args = {
+default_args: dict[str, Any] = {
     "owner": "airflow",
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": on_failure_callback,
+    "on_execute_callback": log_start_callback,
+    "on_success_callback": log_success_callback,
+    "on_failure_callback": log_failure_callback,
 }
 
-
-def create_render_config(tag):
-    return RenderConfig(select=[f"tag:{tag}"], load_method=LoadMode.DBT_LS)
-
+common_operator_args = {
+    "install_deps": True,
+    "env": dbt_env,
+}
 
 with DAG(
     dag_id="snowflake_data_vault_modular",
@@ -43,43 +49,25 @@ with DAG(
     schedule_interval="@daily",
     catchup=False,
     default_args=default_args,
-    on_success_callback=on_success_callback,
+    on_success_callback=log_dag_success_callback,
     tags=["dbt", "snowflake", "vault"],
 ) as dag:
-    staging_tg = DbtTaskGroup(
-        group_id="staging",
-        project_config=ProjectConfig(DBT_ROOT_PATH),
-        profile_config=profile_config,
-        execution_config=execution_config,
-        render_config=create_render_config("staging"),
-        operator_args={"env": dbt_env},
-    )
 
-    raw_vault_tg = DbtTaskGroup(
-        group_id="raw_vault",
-        project_config=ProjectConfig(DBT_ROOT_PATH),
-        profile_config=profile_config,
-        execution_config=execution_config,
-        render_config=create_render_config("raw_vault"),
-        operator_args={"env": dbt_env},
-    )
+    def create_dbt_group(group_id: str, tag: str) -> DbtTaskGroup:
+        return DbtTaskGroup(
+            group_id=group_id,
+            project_config=ProjectConfig(DBT_ROOT_PATH),
+            profile_config=profile_config,
+            execution_config=ExecutionConfig(dbt_executable_path="dbt"),
+            render_config=RenderConfig(
+                select=[f"tag:{tag}"], load_method=LoadMode.DBT_LS
+            ),
+            operator_args=common_operator_args,
+        )
 
-    business_vault_tg = DbtTaskGroup(
-        group_id="business_vault",
-        project_config=ProjectConfig(DBT_ROOT_PATH),
-        profile_config=profile_config,
-        execution_config=execution_config,
-        render_config=create_render_config("business_vault"),
-        operator_args={"env": dbt_env},
-    )
-
-    marts_tg = DbtTaskGroup(
-        group_id="marts",
-        project_config=ProjectConfig(DBT_ROOT_PATH),
-        profile_config=profile_config,
-        execution_config=execution_config,
-        render_config=create_render_config("marts"),
-        operator_args={"env": dbt_env},
-    )
+    staging_tg = create_dbt_group("staging", "staging")
+    raw_vault_tg = create_dbt_group("raw_vault", "raw_vault")
+    business_vault_tg = create_dbt_group("business_vault", "business_vault")
+    marts_tg = create_dbt_group("marts", "marts")
 
     staging_tg >> raw_vault_tg >> business_vault_tg >> marts_tg
