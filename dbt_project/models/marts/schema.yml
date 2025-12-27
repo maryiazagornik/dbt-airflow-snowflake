@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: "Customer dimension (current snapshot) built from the latest PIT record."
+    columns:
+      - name: CUSTOMER_PK
+        tests:
+          - not_null
+          - unique
+      - name: CUSTOMER_ID
+        tests:
+          - not_null
+
+  - name: dim_date
+    description: "Date dimension generated from a date spine."
+
+  - name: dim_product
+    description: "Example product dimension built from lineitem (demo). For full DV, Parts should be modeled as Hub+Sat."
+
+  - name: fct_orders
+    description: "Orders fact table (order-grain) built from Customer–Order link and Order satellites."
+    columns:
+      - name: ORDER_PK
+        tests:
+          - not_null
+          - unique
+      - name: CUSTOMER_PK
+        tests:
+          - not_null
+      - name: ORDER_DATE
+        tests:
+          - not_null

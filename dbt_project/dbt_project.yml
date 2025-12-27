@@ -24,8 +24,10 @@ models:
 
     raw_vault:
       +materialized: incremental
+      +incremental_strategy: append   # Row/Raw Vault is INSERT ONLY
+      +on_schema_change: ignore
       +schema: raw_vault
-      
+
       hubs:
         +tags: ["raw_vault", "hub"]
       links:
@@ -35,6 +37,8 @@ models:
 
     business_vault:
       +materialized: incremental
+      +incremental_strategy: append
+      +on_schema_change: ignore
       +schema: business_vault
       +tags: ["business_vault"]
 
@@ -42,4 +46,8 @@ models:
       +materialized: table
       +schema: marts
       +tags: ["marts"]
-      
+
+seeds:
+  snowflake_analytics:
+    +schema: staging
+    +tags: ["seed"]

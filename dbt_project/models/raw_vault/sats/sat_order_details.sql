@@ -1,20 +1,35 @@
-{{ config(materialized='incremental', unique_key='ORDER_PK') }}
+{{ config(materialized='incremental', incremental_strategy='append') }}
 
-SELECT DISTINCT
-    ORDER_PK,
-    
-    ORDER_DATE,
-    TOTAL_PRICE,
-    ORDER_PRIORITY,
-    O_CLERK as CLERK_NAME,
-    SHIP_PRIORITY,
-    ORDER_COMMENT,
-    
-    LOAD_DATE,
-    RECORD_SOURCE,
-    {{ dbt_utils.generate_surrogate_key(['ORDER_DATE', 'TOTAL_PRICE', 'ORDER_PRIORITY']) }} as HASHDIFF
+WITH src AS (
+    SELECT
+        hub.ORDER_PK,
+        stg.LOAD_DATE,
+        stg.RECORD_SOURCE,
+        stg.ORDER_DATE,
+        stg.TOTAL_PRICE,
+        {{ hash_diff(['stg.ORDER_DATE', 'stg.TOTAL_PRICE']) }} AS HASHDIFF
+    FROM {{ ref('hub_order') }} AS hub
+    INNER JOIN {{ ref('stg_orders') }} AS stg
+        ON hub.ORDER_PK = stg.ORDER_PK
+)
 
-FROM {{ ref('stg_orders') }}
+SELECT
+    src.ORDER_PK,
+    src.LOAD_DATE,
+    src.RECORD_SOURCE,
+    src.ORDER_DATE,
+    src.TOTAL_PRICE,
+    src.HASHDIFF
+FROM src
+
 {% if is_incremental() %}
-    WHERE LOAD_DATE > (SELECT MAX(LOAD_DATE) FROM {{ this }})
+    WHERE src.LOAD_DATE > (
+        SELECT COALESCE(MAX(t.LOAD_DATE), DATE('1900-01-01'))
+        FROM {{ this }} AS t
+    )
 {% endif %}
+
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY src.ORDER_PK, src.HASHDIFF
+    ORDER BY src.LOAD_DATE
+) = 1

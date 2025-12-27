@@ -1,0 +1,111 @@
+version: 2
+
+models:
+  - name: hub_customer
+    description: "Raw Vault hub for Customer business key (insert-only)."
+    columns:
+      - name: CUSTOMER_PK
+        description: "Hub hash key: MD5(CUSTOMER_ID + record_source)."
+        tests:
+          - not_null
+          - unique
+      - name: CUSTOMER_ID
+        description: "Customer business key from source (TPCH C_CUSTKEY)."
+        tests:
+          - not_null
+      - name: LOAD_DATE
+        description: "Load date (derived from earliest orderdate for the customer)."
+      - name: RECORD_SOURCE
+        description: "Record source identifier (e.g. SNOWFLAKE_SAMPLE)."
+        tests:
+          - not_null
+
+  - name: hub_order
+    description: "Raw Vault hub for Order business key (insert-only)."
+    columns:
+      - name: ORDER_PK
+        description: "Hub hash key: MD5(ORDER_ID + record_source)."
+        tests:
+          - not_null
+          - unique
+      - name: ORDER_ID
+        description: "Order business key from source (TPCH O_ORDERKEY)."
+        tests:
+          - not_null
+      - name: LOAD_DATE
+        description: "Load date (order date)."
+      - name: RECORD_SOURCE
+        tests:
+          - not_null
+
+  - name: link_customer_order
+    description: "Raw Vault link between Customer and Order (insert-only)."
+    columns:
+      - name: LINK_CUSTOMER_ORDER_PK
+        description: "Link hash key: MD5(ORDER_PK + CUSTOMER_PK + record_source)."
+        tests:
+          - not_null
+          - unique
+      - name: ORDER_PK
+        tests:
+          - not_null
+      - name: CUSTOMER_PK
+        tests:
+          - not_null
+      - name: LOAD_DATE
+        description: "Load date for the relationship (order date)."
+      - name: RECORD_SOURCE
+        tests:
+          - not_null
+
+  - name: sat_customer_invar
+    description: "Customer satellite for rarely-changing attributes (insert-only, change-detected by HASHDIFF)."
+    columns:
+      - name: CUSTOMER_PK
+        tests:
+          - not_null
+      - name: LOAD_DATE
+        tests:
+          - not_null
+      - name: HASHDIFF
+        tests:
+          - not_null
+
+  - name: sat_customer_var
+    description: "Customer satellite for frequently-changing attributes (insert-only, change-detected by HASHDIFF)."
+    columns:
+      - name: CUSTOMER_PK
+        tests:
+          - not_null
+      - name: LOAD_DATE
+        tests:
+          - not_null
+      - name: HASHDIFF
+        tests:
+          - not_null
+
+  - name: sat_order_details
+    description: "Order satellite for descriptive details (insert-only)."
+    columns:
+      - name: ORDER_PK
+        tests:
+          - not_null
+      - name: LOAD_DATE
+        tests:
+          - not_null
+      - name: HASHDIFF
+        tests:
+          - not_null
+
+  - name: sat_order_status
+    description: "Order satellite for status/price attributes (insert-only)."
+    columns:
+      - name: ORDER_PK
+        tests:
+          - not_null
+      - name: LOAD_DATE
+        tests:
+          - not_null
+      - name: HASHDIFF
+        tests:
+          - not_null

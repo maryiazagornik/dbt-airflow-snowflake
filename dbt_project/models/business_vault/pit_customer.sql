@@ -1,31 +1,106 @@
 {{ config(materialized='table') }}
 
-WITH hub AS (
-    SELECT CUSTOMER_PK FROM {{ ref('hub_customer') }}
+WITH as_of AS (
+    SELECT DISTINCT s.LOAD_DATE::DATE AS AS_OF_DATE
+    FROM {{ ref('sat_customer_invar') }} AS s
+
+    UNION ALL
+
+    SELECT DISTINCT s.LOAD_DATE::DATE AS AS_OF_DATE
+    FROM {{ ref('sat_customer_var') }} AS s
+
+    UNION ALL
+
+    SELECT DISTINCT s.LOAD_DATE::DATE AS AS_OF_DATE
+    FROM {{ ref('sat_customer_business') }} AS s
 ),
-sat_invar AS (
-    SELECT CUSTOMER_PK, LOAD_DATE
-    FROM {{ ref('sat_customer_invar') }}
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_PK ORDER BY LOAD_DATE DESC) = 1
+
+customers AS (
+    SELECT DISTINCT h.CUSTOMER_PK
+    FROM {{ ref('hub_customer') }} AS h
 ),
-sat_var AS (
-    SELECT CUSTOMER_PK, LOAD_DATE
-    FROM {{ ref('sat_customer_var') }}
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_PK ORDER BY LOAD_DATE DESC) = 1
+
+grid AS (
+    SELECT
+        c.CUSTOMER_PK,
+        a.AS_OF_DATE
+    FROM customers AS c
+    CROSS JOIN as_of AS a
 ),
-sat_biz AS (
-    SELECT CUSTOMER_PK, LOAD_DATE
-    FROM {{ ref('sat_customer_business') }}
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_PK ORDER BY LOAD_DATE DESC) = 1
+
+invar_ranked AS (
+    SELECT
+        g.CUSTOMER_PK,
+        g.AS_OF_DATE,
+        s.LOAD_DATE AS SAT_LOAD_DATE,
+        ROW_NUMBER() OVER (
+            PARTITION BY g.CUSTOMER_PK, g.AS_OF_DATE
+            ORDER BY s.LOAD_DATE DESC
+        ) AS RN
+    FROM grid AS g
+    LEFT JOIN {{ ref('sat_customer_invar') }} AS s
+        ON
+            g.CUSTOMER_PK = s.CUSTOMER_PK
+            AND s.LOAD_DATE::DATE <= g.AS_OF_DATE
+),
+
+var_ranked AS (
+    SELECT
+        g.CUSTOMER_PK,
+        g.AS_OF_DATE,
+        s.LOAD_DATE AS SAT_LOAD_DATE,
+        ROW_NUMBER() OVER (
+            PARTITION BY g.CUSTOMER_PK, g.AS_OF_DATE
+            ORDER BY s.LOAD_DATE DESC
+        ) AS RN
+    FROM grid AS g
+    LEFT JOIN {{ ref('sat_customer_var') }} AS s
+        ON
+            g.CUSTOMER_PK = s.CUSTOMER_PK
+            AND s.LOAD_DATE::DATE <= g.AS_OF_DATE
+),
+
+biz_ranked AS (
+    SELECT
+        g.CUSTOMER_PK,
+        g.AS_OF_DATE,
+        s.LOAD_DATE AS SAT_LOAD_DATE,
+        ROW_NUMBER() OVER (
+            PARTITION BY g.CUSTOMER_PK, g.AS_OF_DATE
+            ORDER BY s.LOAD_DATE DESC
+        ) AS RN
+    FROM grid AS g
+    LEFT JOIN {{ ref('sat_customer_business') }} AS s
+        ON
+            g.CUSTOMER_PK = s.CUSTOMER_PK
+            AND s.LOAD_DATE::DATE <= g.AS_OF_DATE
+),
+
+final AS (
+    SELECT
+        g.CUSTOMER_PK,
+        g.AS_OF_DATE,
+        iv.SAT_LOAD_DATE AS INVAR_LOAD_DATE,
+        vv.SAT_LOAD_DATE AS VAR_LOAD_DATE,
+        bz.SAT_LOAD_DATE AS BIZ_LOAD_DATE,
+        CURRENT_TIMESTAMP() AS LOAD_DATE
+    FROM grid AS g
+    LEFT JOIN invar_ranked AS iv
+        ON
+            g.CUSTOMER_PK = iv.CUSTOMER_PK
+            AND g.AS_OF_DATE = iv.AS_OF_DATE
+            AND iv.RN = 1
+    LEFT JOIN var_ranked AS vv
+        ON
+            g.CUSTOMER_PK = vv.CUSTOMER_PK
+            AND g.AS_OF_DATE = vv.AS_OF_DATE
+            AND vv.RN = 1
+    LEFT JOIN biz_ranked AS bz
+        ON
+            g.CUSTOMER_PK = bz.CUSTOMER_PK
+            AND g.AS_OF_DATE = bz.AS_OF_DATE
+            AND bz.RN = 1
 )
 
-SELECT
-    h.CUSTOMER_PK,
-    COALESCE(i.LOAD_DATE, CAST('1900-01-01' AS DATE)) AS SAT_INVAR_LOAD_DATE,
-    COALESCE(v.LOAD_DATE, CAST('1900-01-01' AS DATE)) AS SAT_VAR_LOAD_DATE,
-    COALESCE(b.LOAD_DATE, CAST('1900-01-01' AS DATE)) AS SAT_BIZ_LOAD_DATE,
-    CURRENT_TIMESTAMP() AS PIT_LOAD_DATE
-FROM hub h
-LEFT JOIN sat_invar i ON h.CUSTOMER_PK = i.CUSTOMER_PK
-LEFT JOIN sat_var v ON h.CUSTOMER_PK = v.CUSTOMER_PK
-LEFT JOIN sat_biz b ON h.CUSTOMER_PK = b.CUSTOMER_PK
+SELECT f.*
+FROM final AS f

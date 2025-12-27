@@ -1,0 +1,15 @@
+# Default: keep LF in repo, let git handle working-tree when needed
+* text=auto
+
+# Shell scripts must stay LF (иначе "exec format error" может вернуться)
+*.sh text eol=lf
+
+# SQL/YAML also лучше в LF чтобы линтеры были стабильны
+*.sql text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Windows scripts
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

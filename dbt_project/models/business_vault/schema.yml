@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: sat_customer_business
+    description: "Business Vault satellite combining Raw Vault + master/seed data. Insert-only, change-detected by HASHDIFF_BIZ."
+    columns:
+      - name: CUSTOMER_PK
+        tests:
+          - not_null
+      - name: LOAD_DATE
+        tests:
+          - not_null
+      - name: HASHDIFF_BIZ
+        tests:
+          - not_null
+
+  - name: sat_eff_customer_order
+    description: "Effectivity satellite for Customer–Order relationship (Business Vault). Uses MERGE to close END_DATE for previous periods."
+    columns:
+      - name: LINK_CUSTOMER_ORDER_PK
+        tests:
+          - not_null
+      - name: START_DATE
+        tests:
+          - not_null
+      - name: END_DATE
+        tests:
+          - not_null
+      - name: IS_CURRENT
+        tests:
+          - not_null
+
+  - name: pit_customer
+    description: "Sparse PIT table for Customer hub. Contains one row per change moment (AS_OF_DATE) and references satellites via their LOAD_DATE values."
+    columns:
+      - name: CUSTOMER_PK
+        tests:
+          - not_null
+      - name: AS_OF_DATE
+        tests:
+          - not_null
+      - name: SAT_INVAR_LOAD_DATE
+        tests:
+          - not_null
+      - name: SAT_VAR_LOAD_DATE
+        tests:
+          - not_null
+      - name: SAT_BIZ_LOAD_DATE
+        tests:
+          - not_null

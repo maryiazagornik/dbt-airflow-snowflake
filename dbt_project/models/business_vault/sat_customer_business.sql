@@ -1,37 +1,66 @@
-{{ config(materialized='incremental', unique_key='CUSTOMER_PK') }}
+{{ config(materialized="incremental") }}
 
-WITH raw_sat AS (
-    SELECT * FROM {{ ref('sat_customer_var') }}
+WITH src AS (
+    SELECT
+        sat.customer_pk,
+        sat.load_date,
+        sat.record_source,
+        sat.customer_id,
+        sat.first_name,
+        sat.last_name,
+        sat.email,
+        sat.phone
+    FROM {{ ref("sat_customer_var") }} AS sat
 ),
 
-seed_data AS (
+marketing AS (
     SELECT
-        CUSTOMER_ID,
-        MARKETING_GROUP,
-        VIP_STATUS
-    FROM {{ ref('customer_marketing') }}
+        m.customer_id,
+        m.segment,
+        m.channel,
+        m.campaign
+    FROM {{ ref("customer_marketing") }} AS m
+),
+
+final AS (
+    SELECT
+        src.customer_pk,
+        src.load_date,
+        src.record_source,
+        {{ hashdiff_sat([
+            "src.customer_id",
+            "src.first_name",
+            "src.last_name",
+            "src.email",
+            "src.phone",
+            "marketing.segment",
+            "marketing.channel",
+            "marketing.campaign",
+        ]) }} AS hashdiff,
+        src.customer_id,
+        src.first_name,
+        src.last_name,
+        src.email,
+        src.phone,
+        marketing.segment,
+        marketing.channel,
+        marketing.campaign
+    FROM src
+    LEFT JOIN marketing
+        ON src.customer_id = marketing.customer_id
 )
 
 SELECT
-    r.CUSTOMER_PK,
-    r.LOAD_DATE,
-    r.RECORD_SOURCE,
-    r.CUSTOMER_ADDRESS,
-    r.ACCOUNT_BALANCE,
-    s.MARKETING_GROUP,
-    s.VIP_STATUS,
-
-    {{ hash_diff(['r.CUSTOMER_ADDRESS', 'r.ACCOUNT_BALANCE', 's.MARKETING_GROUP']) }} AS HASHDIFF_BIZ
-
-FROM raw_sat AS r
-LEFT JOIN {{ ref('stg_customer') }} AS stg ON r.CUSTOMER_PK = stg.CUSTOMER_PK
-LEFT JOIN seed_data AS s ON stg.CUSTOMER_ID = s.CUSTOMER_ID
-
-{% if is_incremental() %}
-    WHERE NOT EXISTS (
-        SELECT 1 FROM {{ this }} AS t
-        WHERE
-            t.CUSTOMER_PK = r.CUSTOMER_PK
-            AND t.HASHDIFF_BIZ = {{ hash_diff(['r.CUSTOMER_ADDRESS', 'r.ACCOUNT_BALANCE', 's.MARKETING_GROUP']) }}
-    )
-{% endif %}
+    final.customer_pk,
+    final.hashdiff,
+    final.load_date,
+    final.record_source,
+    final.customer_id,
+    final.first_name,
+    final.last_name,
+    final.email,
+    final.phone,
+    final.segment,
+    final.channel,
+    final.campaign
+FROM final

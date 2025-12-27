@@ -1,15 +1,24 @@
-{{ config(materialized='incremental', unique_key='CUSTOMER_PK') }}
+{{ config(materialized='incremental', incremental_strategy='append') }}
+
+WITH src AS (
+    SELECT
+        stg.CUSTOMER_PK,
+        stg.CUSTOMER_ID,
+        stg.LOAD_DATE,
+        stg.RECORD_SOURCE
+    FROM {{ ref('stg_customer') }} AS stg
+)
 
 SELECT DISTINCT
-    source.CUSTOMER_PK,
-    source.CUSTOMER_ID,
-    source.LOAD_DATE,
-    source.RECORD_SOURCE
-FROM {{ ref('stg_customer') }} AS source
+    src.CUSTOMER_PK,
+    src.CUSTOMER_ID,
+    src.LOAD_DATE,
+    src.RECORD_SOURCE
+FROM src
 
 {% if is_incremental() %}
-    WHERE NOT EXISTS (
-        SELECT 1 FROM {{ this }} AS target
-        WHERE target.CUSTOMER_PK = source.CUSTOMER_PK
+    WHERE src.LOAD_DATE > (
+        SELECT COALESCE(MAX(t.LOAD_DATE), DATE('1900-01-01'))
+        FROM {{ this }} AS t
     )
 {% endif %}
