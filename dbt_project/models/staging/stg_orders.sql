@@ -20,7 +20,6 @@ prepared AS (
 
         'SNOWFLAKE_SAMPLE' AS RECORD_SOURCE,
         O_ORDERDATE AS LOAD_DATE
-
     FROM source
 ),
 
@@ -35,13 +34,27 @@ hashed AS (
         LOAD_DATE,
         RECORD_SOURCE,
 
-        O_TOTALPRICE AS TOTAL_PRICE,
-        O_ORDERSTATUS AS ORDER_STATUS,
-        O_ORDERDATE AS ORDER_DATE,
+        O_TOTALPRICE    AS TOTAL_PRICE,
+        O_ORDERSTATUS   AS ORDER_STATUS,
+        O_ORDERDATE     AS ORDER_DATE,
         O_ORDERPRIORITY AS ORDER_PRIORITY,
-        O_CLERK,
-        O_SHIPPRIORITY AS SHIP_PRIORITY,
-        O_COMMENT AS ORDER_COMMENT
+        O_CLERK         AS CLERK,
+        O_SHIPPRIORITY  AS SHIP_PRIORITY,
+        O_COMMENT       AS ORDER_COMMENT,
+
+
+        {{ hash_diff([
+            'O_ORDERDATE',
+            'O_ORDERPRIORITY',
+            'O_SHIPPRIORITY',
+            'O_CLERK',
+            'O_TOTALPRICE',
+            'O_COMMENT'
+        ]) }} AS HASHDIFF_DETAILS,
+
+        {{ hash_diff([
+            'O_ORDERSTATUS'
+        ]) }} AS HASHDIFF_STATUS
 
     FROM prepared
 )

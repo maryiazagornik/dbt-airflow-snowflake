@@ -1,66 +1,75 @@
-{{ config(materialized="incremental") }}
+{{ config(materialized='incremental', incremental_strategy='append') }}
 
-WITH src AS (
-    SELECT
-        sat.customer_pk,
-        sat.load_date,
-        sat.record_source,
-        sat.customer_id,
-        sat.first_name,
-        sat.last_name,
-        sat.email,
-        sat.phone
-    FROM {{ ref("sat_customer_var") }} AS sat
+WITH raw_sat AS (
+    SELECT *
+    FROM {{ ref('sat_customer_var') }}
 ),
 
-marketing AS (
+seed_data AS (
     SELECT
-        m.customer_id,
-        m.segment,
-        m.channel,
-        m.campaign
-    FROM {{ ref("customer_marketing") }} AS m
+        CUSTOMER_ID,
+        MARKETING_GROUP,
+        VIP_STATUS
+    FROM {{ ref('customer_marketing') }}
 ),
 
-final AS (
+source AS (
     SELECT
-        src.customer_pk,
-        src.load_date,
-        src.record_source,
-        {{ hashdiff_sat([
-            "src.customer_id",
-            "src.first_name",
-            "src.last_name",
-            "src.email",
-            "src.phone",
-            "marketing.segment",
-            "marketing.channel",
-            "marketing.campaign",
-        ]) }} AS hashdiff,
-        src.customer_id,
-        src.first_name,
-        src.last_name,
-        src.email,
-        src.phone,
-        marketing.segment,
-        marketing.channel,
-        marketing.campaign
-    FROM src
-    LEFT JOIN marketing
-        ON src.customer_id = marketing.customer_id
+        r.CUSTOMER_PK,
+        r.LOAD_DATE,
+        r.RECORD_SOURCE,
+        r.CUSTOMER_ADDRESS,
+        r.ACCT_BALANCE,
+        s.MARKETING_GROUP,
+        s.VIP_STATUS,
+
+        {{ hash_diff([
+            'r.CUSTOMER_ADDRESS',
+            'r.ACCT_BALANCE',
+            's.MARKETING_GROUP',
+            's.VIP_STATUS'
+        ]) }} AS HASHDIFF_BIZ
+
+    FROM raw_sat AS r
+    LEFT JOIN {{ ref('stg_customer') }} AS stg
+        ON r.CUSTOMER_PK = stg.CUSTOMER_PK
+    LEFT JOIN seed_data AS s
+        ON stg.CUSTOMER_ID = s.CUSTOMER_ID
+),
+
+filtered AS (
+    SELECT *
+    FROM source
+    {% if is_incremental() %}
+    WHERE LOAD_DATE > (
+        SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01'))
+        FROM {{ this }}
+    )
+    {% endif %}
+),
+
+latest AS (
+    SELECT
+        CUSTOMER_PK,
+        HASHDIFF_BIZ
+    FROM {{ this }}
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY CUSTOMER_PK
+        ORDER BY LOAD_DATE DESC
+    ) = 1
+),
+
+to_insert AS (
+    SELECT f.*
+    FROM filtered f
+    LEFT JOIN latest l
+      ON f.CUSTOMER_PK = l.CUSTOMER_PK
+    WHERE l.CUSTOMER_PK IS NULL OR f.HASHDIFF_BIZ <> l.HASHDIFF_BIZ
 )
 
-SELECT
-    final.customer_pk,
-    final.hashdiff,
-    final.load_date,
-    final.record_source,
-    final.customer_id,
-    final.first_name,
-    final.last_name,
-    final.email,
-    final.phone,
-    final.segment,
-    final.channel,
-    final.campaign
-FROM final
+SELECT *
+FROM to_insert
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY CUSTOMER_PK, HASHDIFF_BIZ
+    ORDER BY LOAD_DATE
+) = 1

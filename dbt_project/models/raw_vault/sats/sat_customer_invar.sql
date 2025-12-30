@@ -1,33 +1,62 @@
 {{ config(materialized='incremental', incremental_strategy='append') }}
 
-WITH src AS (
+WITH source AS (
     SELECT
-        hub.CUSTOMER_PK,
-        stg.LOAD_DATE,
-        stg.RECORD_SOURCE,
-        stg.CUSTOMER_NAME,
-        {{ hash_diff(['stg.CUSTOMER_NAME']) }} AS HASHDIFF
-    FROM {{ ref('hub_customer') }} AS hub
-    INNER JOIN {{ ref('stg_customer') }} AS stg
-        ON hub.CUSTOMER_PK = stg.CUSTOMER_PK
+        CUSTOMER_PK,
+        CUSTOMER_NAME,
+        MKT_SEGMENT,
+        LOAD_DATE,
+        RECORD_SOURCE,
+        HASHDIFF_INVAR AS HASHDIFF
+    FROM {{ ref('stg_customer') }}
+),
+
+filtered AS (
+    SELECT *
+    FROM source
+    {% if is_incremental() %}
+        WHERE LOAD_DATE > (
+            SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01'))
+            FROM {{ this }}
+        )
+    {% endif %}
 )
 
-SELECT
-    src.CUSTOMER_PK,
-    src.LOAD_DATE,
-    src.RECORD_SOURCE,
-    src.CUSTOMER_NAME,
-    src.HASHDIFF
-FROM src
-
 {% if is_incremental() %}
-    WHERE src.LOAD_DATE > (
-        SELECT COALESCE(MAX(t.LOAD_DATE), DATE('1900-01-01'))
-        FROM {{ this }} AS t
-    )
-{% endif %}
+,
+latest AS (
+    SELECT
+        CUSTOMER_PK,
+        HASHDIFF
+    FROM {{ this }}
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY CUSTOMER_PK
+        ORDER BY LOAD_DATE DESC
+    ) = 1
+),
 
+to_insert AS (
+    SELECT
+        f.*
+    FROM filtered AS f
+    LEFT JOIN latest AS l
+        ON f.CUSTOMER_PK = l.CUSTOMER_PK
+    WHERE l.CUSTOMER_PK IS NULL OR f.HASHDIFF <> l.HASHDIFF
+)
+
+SELECT *
+FROM to_insert
 QUALIFY ROW_NUMBER() OVER (
-    PARTITION BY src.CUSTOMER_PK, src.HASHDIFF
-    ORDER BY src.LOAD_DATE
+    PARTITION BY CUSTOMER_PK, HASHDIFF
+    ORDER BY LOAD_DATE
 ) = 1
+{% else %}
+
+SELECT *
+FROM filtered
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY CUSTOMER_PK, HASHDIFF
+    ORDER BY LOAD_DATE
+) = 1
+
+{% endif %}

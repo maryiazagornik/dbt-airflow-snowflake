@@ -24,7 +24,7 @@ models:
 
     raw_vault:
       +materialized: incremental
-      +incremental_strategy: append   # Row/Raw Vault is INSERT ONLY
+      +incremental_strategy: append
       +on_schema_change: ignore
       +schema: raw_vault
 

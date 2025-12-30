@@ -1,24 +1,26 @@
-{{
-    config(
-        materialized='incremental',
-        unique_key='LINK_CUSTOMER_ORDER_PK',
-        incremental_strategy='merge'
-    )
-}}
+{{ config(materialized='incremental', incremental_strategy='append') }}
 
-WITH src AS (
+WITH source AS (
     SELECT
-        CUSTOMER_PK,
+        {{ hash_key(['ORDER_PK', 'CUSTOMER_PK'], 'RECORD_SOURCE') }} AS LINK_CUSTOMER_ORDER_PK,
         ORDER_PK,
+        CUSTOMER_PK,
         LOAD_DATE,
         RECORD_SOURCE
     FROM {{ ref('stg_orders') }}
 )
 
 SELECT DISTINCT
-    MD5(CONCAT_WS('||', s.CUSTOMER_PK, s.ORDER_PK)) AS LINK_CUSTOMER_ORDER_PK,
-    s.CUSTOMER_PK,
-    s.ORDER_PK,
-    s.LOAD_DATE,
-    s.RECORD_SOURCE
-FROM src AS s
+    LINK_CUSTOMER_ORDER_PK,
+    ORDER_PK,
+    CUSTOMER_PK,
+    LOAD_DATE,
+    RECORD_SOURCE
+FROM source
+
+{% if is_incremental() %}
+    WHERE LOAD_DATE > (
+        SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01'))
+        FROM {{ this }}
+    )
+{% endif %}

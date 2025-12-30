@@ -63,7 +63,6 @@ def _dbt_args(
     if extra_args:
         args += list(extra_args)
 
-    # Explicitly set project/profiles to avoid surprises
     args += ["--project-dir", str(DBT_ROOT_PATH), "--profiles-dir", str(DBT_ROOT_PATH)]
     return args
 
@@ -101,7 +100,7 @@ def choose_load_mode() -> str:
         row_count = int(result[0]) if result and result[0] is not None else 0
         return "incremental_load" if row_count > 0 else "initial_load"
     except Exception:
-        # table doesn't exist yet (first run) or schema not created
+
         return "initial_load"
 
 
@@ -114,6 +113,7 @@ with DAG(
     on_success_callback=dag_success_handler,
     tags=["dbt", "snowflake", "vault"],
 ) as dag:
+
     start = EmptyOperator(task_id="start")
 
     choose_mode = BranchPythonOperator(
@@ -126,7 +126,7 @@ with DAG(
 
     end = EmptyOperator(task_id="end", trigger_rule="none_failed_min_one_success")
 
-    # INITIAL LOAD (full refresh)
+
     with TaskGroup(group_id="initial_pipeline") as initial_pipeline:
         deps = PythonOperator(task_id="dbt_deps", python_callable=dbt_deps)
         seeds = PythonOperator(
@@ -152,7 +152,7 @@ with DAG(
 
         deps >> seeds >> staging >> raw_vault >> business_vault >> marts
 
-    # INCREMENTAL LOAD
+
     with TaskGroup(group_id="incremental_pipeline") as incremental_pipeline:
         deps = PythonOperator(task_id="dbt_deps", python_callable=dbt_deps)
         seeds = PythonOperator(
@@ -178,7 +178,8 @@ with DAG(
 
         deps >> seeds >> staging >> raw_vault >> business_vault >> marts
 
-    # Wiring
+
     start >> choose_mode
     choose_mode >> initial >> initial_pipeline >> end
     choose_mode >> incremental >> incremental_pipeline >> end
+

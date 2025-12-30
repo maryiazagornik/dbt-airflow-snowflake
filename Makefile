@@ -19,50 +19,50 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-up: ## Start services (detached)
+up:
 	$(DC) up -d
 
-build: ## Build images
+build:
 	$(DC) build
 
-rebuild: down build up ## Rebuild and restart
+rebuild: down build up
 
-down: ## Stop services
+down:
 	$(DC) down
 
-logs: ## Tail scheduler logs
+logs:
 	$(DC) logs -f $(CONTAINER)
 
-docker-exec: ## Execute a command in the running container: make docker-exec cmd="dbt --version"
+docker-exec:
 	$(DC) exec $(CONTAINER) $(cmd)
 
-docker-bash: ## Open a bash shell in the running container
+docker-bash:
 	$(DC) exec $(CONTAINER) bash
 
-dbt-deps: ## Install dbt packages
+dbt-deps:
 	$(EXEC) dbt deps $(DBT_FLAGS)
 
-dbt-seed: ## Run dbt seeds
+dbt-seed:
 	$(EXEC) dbt seed $(DBT_FLAGS)
 
-dbt-run: ## Run dbt models
+dbt-run:
 	$(EXEC) dbt run $(DBT_FLAGS)
 
-dbt-test: ## Run dbt tests
+dbt-test:
 	$(EXEC) dbt test $(DBT_FLAGS)
 
-dbt-full: ## dbt build (models + tests)
+dbt-full:
 	$(EXEC) dbt build $(DBT_FLAGS)
 
-dbt-docs-gen: ## Generate dbt docs
+dbt-docs-gen:
 	$(EXEC) dbt docs generate $(DBT_FLAGS)
 
-dbt-docs-serve: ## Serve dbt docs on http://localhost:8001
+dbt-docs-serve:
 	$(RUN) -p 8001:8080 --entrypoint "dbt docs serve --port 8080 --address 0.0.0.0 --no-browser $(DBT_FLAGS)" $(CONTAINER)
 
-lint: ## Lint SQL with sqlfluff
+lint:
 	uv run sqlfluff lint dbt_project/models
 
-clean: ## Clean dbt artifacts
+clean:
 	$(EXEC) dbt clean $(DBT_FLAGS)
 	rm -rf dbt_project/target dbt_project/dbt_packages

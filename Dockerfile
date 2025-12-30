@@ -7,8 +7,7 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python deps into the image python environment
-# NOTE: we keep it simple for the demo - pin the versions to avoid surprises.
+
 USER airflow
 
 RUN pip install --no-cache-dir uv
@@ -19,7 +18,7 @@ RUN uv pip install --no-cache \
         loguru \
         requests
 
-# Wrapper around the official Airflow entrypoint
+
 USER root
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

@@ -1,33 +1,52 @@
-{{ config(materialized='incremental', incremental_strategy='append') }}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='append'
+) }}
 
-WITH src AS (
+WITH source AS (
     SELECT
-        hub.ORDER_PK,
-        stg.LOAD_DATE,
-        stg.RECORD_SOURCE,
-        stg.ORDER_STATUS,
-        {{ hash_diff(['stg.ORDER_STATUS']) }} AS HASHDIFF
-    FROM {{ ref('hub_order') }} AS hub
-    INNER JOIN {{ ref('stg_orders') }} AS stg
-        ON hub.ORDER_PK = stg.ORDER_PK
+        s.ORDER_PK,
+        s.ORDER_STATUS,
+        s.LOAD_DATE,
+        s.RECORD_SOURCE,
+        s.HASHDIFF_STATUS AS HASHDIFF
+    FROM {{ ref('stg_orders') }} AS s
+),
+
+filtered AS (
+    SELECT *
+    FROM source
+    {% if is_incremental() %}
+    WHERE LOAD_DATE > (
+        SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01')) FROM {{ this }}
+    )
+    {% endif %}
+),
+
+deduped AS (
+    SELECT *
+    FROM filtered
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY ORDER_PK, HASHDIFF
+        ORDER BY LOAD_DATE
+    ) = 1
+),
+
+latest AS (
+    SELECT ORDER_PK, HASHDIFF
+    FROM {{ this }}
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY ORDER_PK
+        ORDER BY LOAD_DATE DESC
+    ) = 1
+),
+
+to_insert AS (
+    SELECT d.*
+    FROM deduped d
+    LEFT JOIN latest t
+      ON d.ORDER_PK = t.ORDER_PK
+    WHERE t.ORDER_PK IS NULL OR d.HASHDIFF <> t.HASHDIFF
 )
 
-SELECT
-    src.ORDER_PK,
-    src.LOAD_DATE,
-    src.RECORD_SOURCE,
-    src.ORDER_STATUS,
-    src.HASHDIFF
-FROM src
-
-{% if is_incremental() %}
-    WHERE src.LOAD_DATE > (
-        SELECT COALESCE(MAX(t.LOAD_DATE), DATE('1900-01-01'))
-        FROM {{ this }} AS t
-    )
-{% endif %}
-
-QUALIFY ROW_NUMBER() OVER (
-    PARTITION BY src.ORDER_PK, src.HASHDIFF
-    ORDER BY src.LOAD_DATE
-) = 1
+SELECT * FROM to_insert

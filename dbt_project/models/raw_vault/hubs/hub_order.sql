@@ -1,24 +1,24 @@
 {{ config(materialized='incremental', incremental_strategy='append') }}
 
-WITH src AS (
+WITH source AS (
     SELECT
-        stg.ORDER_PK,
-        stg.ORDER_ID,
-        stg.LOAD_DATE,
-        stg.RECORD_SOURCE
-    FROM {{ ref('stg_orders') }} AS stg
+        ORDER_PK,
+        ORDER_ID,
+        LOAD_DATE,
+        RECORD_SOURCE
+    FROM {{ ref('stg_orders') }}
 )
 
 SELECT DISTINCT
-    src.ORDER_PK,
-    src.ORDER_ID,
-    src.LOAD_DATE,
-    src.RECORD_SOURCE
-FROM src
+    ORDER_PK,
+    ORDER_ID,
+    LOAD_DATE,
+    RECORD_SOURCE
+FROM source
 
 {% if is_incremental() %}
-    WHERE src.LOAD_DATE > (
-        SELECT COALESCE(MAX(t.LOAD_DATE), DATE('1900-01-01'))
-        FROM {{ this }} AS t
+    WHERE LOAD_DATE > (
+        SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01'))
+        FROM {{ this }}
     )
 {% endif %}

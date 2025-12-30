@@ -13,13 +13,13 @@ models:
           - not_null
 
   - name: dim_date
-    description: "Date dimension generated from a date spine."
+    description: "Date dimension generated from a date spine." 
 
   - name: dim_product
     description: "Example product dimension built from lineitem (demo). For full DV, Parts should be modeled as Hub+Sat."
 
   - name: fct_orders
-    description: "Orders fact table (order-grain) built from Customer–Order link and Order satellites."
+    description: "Orders fact table (order-grain) built from Customer–Order link and Order satellites." 
     columns:
       - name: ORDER_PK
         tests:

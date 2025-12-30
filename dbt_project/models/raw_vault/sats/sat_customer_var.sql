@@ -1,35 +1,54 @@
-{{ config(materialized='incremental', incremental_strategy='append') }}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='append'
+) }}
 
-WITH src AS (
+WITH source AS (
     SELECT
-        hub.CUSTOMER_PK,
-        stg.LOAD_DATE,
-        stg.RECORD_SOURCE,
-        stg.CUSTOMER_ADDRESS,
-        stg.ACCOUNT_BALANCE,
-        {{ hash_diff(['stg.CUSTOMER_ADDRESS', 'stg.ACCOUNT_BALANCE']) }} AS HASHDIFF
-    FROM {{ ref('hub_customer') }} AS hub
-    INNER JOIN {{ ref('stg_customer') }} AS stg
-        ON hub.CUSTOMER_PK = stg.CUSTOMER_PK
+        s.CUSTOMER_PK,
+        s.CUSTOMER_ADDRESS,
+        s.CUSTOMER_PHONE,
+        s.ACCOUNT_BALANCE AS ACCT_BALANCE,
+        s.LOAD_DATE,
+        s.RECORD_SOURCE,
+        s.HASHDIFF_VAR AS HASHDIFF
+    FROM {{ ref('stg_customer') }} AS s
+),
+
+filtered AS (
+    SELECT *
+    FROM source
+    {% if is_incremental() %}
+    WHERE LOAD_DATE > (
+        SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01')) FROM {{ this }}
+    )
+    {% endif %}
+),
+
+deduped AS (
+    SELECT *
+    FROM filtered
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY CUSTOMER_PK, HASHDIFF
+        ORDER BY LOAD_DATE
+    ) = 1
+),
+
+latest AS (
+    SELECT CUSTOMER_PK, HASHDIFF
+    FROM {{ this }}
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY CUSTOMER_PK
+        ORDER BY LOAD_DATE DESC
+    ) = 1
+),
+
+to_insert AS (
+    SELECT d.*
+    FROM deduped d
+    LEFT JOIN latest t
+      ON d.CUSTOMER_PK = t.CUSTOMER_PK
+    WHERE t.CUSTOMER_PK IS NULL OR d.HASHDIFF <> t.HASHDIFF
 )
 
-SELECT
-    src.CUSTOMER_PK,
-    src.LOAD_DATE,
-    src.RECORD_SOURCE,
-    src.CUSTOMER_ADDRESS,
-    src.ACCOUNT_BALANCE,
-    src.HASHDIFF
-FROM src
-
-{% if is_incremental() %}
-    WHERE src.LOAD_DATE > (
-        SELECT COALESCE(MAX(t.LOAD_DATE), DATE('1900-01-01'))
-        FROM {{ this }} AS t
-    )
-{% endif %}
-
-QUALIFY ROW_NUMBER() OVER (
-    PARTITION BY src.CUSTOMER_PK, src.HASHDIFF
-    ORDER BY src.LOAD_DATE
-) = 1
+SELECT * FROM to_insert

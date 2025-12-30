@@ -70,6 +70,7 @@ with DAG(
     on_success_callback=dag_success_handler,
     tags=["maintenance", "snowflake"],
 ) as dag:
+
     cleanup = PythonOperator(
         task_id="cleanup_schemas",
         python_callable=cleanup_schemas,
