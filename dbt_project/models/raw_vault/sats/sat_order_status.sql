@@ -5,35 +5,36 @@
 
 WITH source AS (
     SELECT
-        s.ORDER_PK,
-        s.ORDER_STATUS,
-        s.LOAD_DATE,
-        s.RECORD_SOURCE,
-        s.HASHDIFF_STATUS AS HASHDIFF
-    FROM {{ ref('stg_orders') }} AS s
+        ORDER_PK,
+        LOAD_DATE,
+        RECORD_SOURCE,
+
+        ORDER_STATUS,
+
+        {{ hash_diff([
+            'ORDER_STATUS'
+        ]) }} AS HASHDIFF
+
+    FROM {{ ref('stg_orders') }}
 ),
 
 filtered AS (
     SELECT *
     FROM source
     {% if is_incremental() %}
-    WHERE LOAD_DATE > (
-        SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01')) FROM {{ this }}
-    )
+        WHERE LOAD_DATE > (
+            SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01'))
+            FROM {{ this }}
+        )
     {% endif %}
-),
+)
 
-deduped AS (
-    SELECT *
-    FROM filtered
-    QUALIFY ROW_NUMBER() OVER (
-        PARTITION BY ORDER_PK, HASHDIFF
-        ORDER BY LOAD_DATE
-    ) = 1
-),
+{% if is_incremental() %}
 
-latest AS (
-    SELECT ORDER_PK, HASHDIFF
+, latest AS (
+    SELECT
+        ORDER_PK,
+        HASHDIFF
     FROM {{ this }}
     QUALIFY ROW_NUMBER() OVER (
         PARTITION BY ORDER_PK
@@ -42,11 +43,28 @@ latest AS (
 ),
 
 to_insert AS (
-    SELECT d.*
-    FROM deduped d
-    LEFT JOIN latest t
-      ON d.ORDER_PK = t.ORDER_PK
-    WHERE t.ORDER_PK IS NULL OR d.HASHDIFF <> t.HASHDIFF
+    SELECT f.*
+    FROM filtered f
+    LEFT JOIN latest l
+        ON f.ORDER_PK = l.ORDER_PK
+    WHERE l.ORDER_PK IS NULL
+       OR f.HASHDIFF <> l.HASHDIFF
 )
 
-SELECT * FROM to_insert
+SELECT *
+FROM to_insert
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY ORDER_PK, HASHDIFF
+    ORDER BY LOAD_DATE
+) = 1
+
+{% else %}
+
+SELECT *
+FROM filtered
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY ORDER_PK, HASHDIFF
+    ORDER BY LOAD_DATE
+) = 1
+
+{% endif %}
