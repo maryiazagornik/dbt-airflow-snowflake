@@ -121,3 +121,10 @@ uv sync
 # Lint all models
 uv run sqlfluff lint dbt_project/models
 ```
+
+## Local run
+
+- Install deps: `uv sync`
+- dbt packages: `uv run dbt deps --project-dir dbt_project --profiles-dir dbt_project`
+
+Snowflake trial may be suspended. In that case `dbt debug/seed/run/test` will fail until a valid Snowflake account/warehouse is available.

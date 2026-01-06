@@ -1,16 +1,3 @@
-{#
-  DV2 hashing helpers (Snowflake)
-
-  Requirements from mentor:
-  - record_source MUST be included in hash keys for Hubs and Links.
-  - Raw Vault should be insert-only, so stable hashing matters to avoid duplicates.
-
-  Implementation notes:
-  - Normalise all values (trim + cast) and replace NULL/empty with a placeholder.
-  - Use UPPER() to avoid case-related hash changes.
-  - Use a clear delimiter between fields.
-#}
-
 {% macro dv_normalize(field) %}
 
     COALESCE(NULLIF(TRIM(CAST({{ field }} AS VARCHAR)), ''), '∅')

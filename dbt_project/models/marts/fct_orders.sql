@@ -36,8 +36,9 @@ LEFT JOIN sat_status AS s
     ON l.ORDER_PK = s.ORDER_PK
 
 {% if is_incremental() %}
-    WHERE l.LOAD_DATE > (
-        SELECT COALESCE(MAX(ORDER_DATE), DATE('1900-01-01'))
-        FROM {{ this }}
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM {{ this }} t
+        WHERE t.ORDER_PK = l.ORDER_PK
     )
 {% endif %}

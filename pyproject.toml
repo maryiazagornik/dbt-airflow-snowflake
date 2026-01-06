@@ -5,6 +5,7 @@ description = "Monorepo for Airflow + DBT + Snowflake (Data Vault)"
 requires-python = ">=3.10"
 dependencies = [
     "apache-airflow==2.8.1",
+    "dbt-core==1.7.13",
     "dbt-snowflake==1.7.2",
     "astronomer-cosmos==1.9.0",
     "loguru==0.7.2",
@@ -12,6 +13,7 @@ dependencies = [
     "python-dotenv==1.0.1",
     "sqlfluff-templater-dbt==3.0.0",
 ]
+
 
 [dependency-groups]
 dev = [
@@ -21,14 +23,15 @@ dev = [
 
 [tool.sqlfluff.core]
 dialect = "snowflake"
-templater = "jinja"
+templater = "dbt"
 runaway_limit = 10
 max_line_length = 120
 exclude_rules = "CP01,CP02,ST06,LT05"
 ignore = "templating"
 
-[tool.sqlfluff.templater.jinja]
-apply_dbt_builtins = true
+[tool.sqlfluff.templater.dbt]
+project_dir = "dbt_project"
+profiles_dir = "dbt_project"
 
 [tool.sqlfluff.indentation]
 tab_space_size = 4

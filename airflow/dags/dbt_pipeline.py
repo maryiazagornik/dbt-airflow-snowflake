@@ -41,7 +41,6 @@ default_args: dict[str, Any] = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "on_execute_callback": log_start_callback,
-    "on_success_callback": success_handler,
     "on_failure_callback": failure_handler,
 }
 

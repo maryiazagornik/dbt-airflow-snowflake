@@ -32,9 +32,11 @@ deduped AS (
         PARTITION BY CUSTOMER_PK, HASHDIFF
         ORDER BY LOAD_DATE
     ) = 1
-),
+)
 
-latest AS (
+{% if is_incremental() %}
+
+, latest AS (
     SELECT CUSTOMER_PK, HASHDIFF
     FROM {{ this }}
     QUALIFY ROW_NUMBER() OVER (
@@ -52,3 +54,9 @@ to_insert AS (
 )
 
 SELECT * FROM to_insert
+
+{% else %}
+
+SELECT * FROM deduped
+
+{% endif %}

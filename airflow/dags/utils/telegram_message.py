@@ -34,7 +34,7 @@ def _get_telegram_creds() -> Tuple[str | None, str | None]:
             f"Telegram connection '{VAR_TG_NAME}' not found: {e}")
 
 
-    token = os.getenv("TELEGRAM_TOKEN")
+    token = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if token and chat_id:
         return token, chat_id

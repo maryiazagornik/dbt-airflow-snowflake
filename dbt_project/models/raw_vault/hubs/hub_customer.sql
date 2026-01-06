@@ -7,18 +7,21 @@ WITH source AS (
         LOAD_DATE,
         RECORD_SOURCE
     FROM {{ ref('stg_customer') }}
+),
+
+to_insert AS (
+    SELECT DISTINCT
+        s.CUSTOMER_PK,
+        s.CUSTOMER_ID,
+        s.LOAD_DATE,
+        s.RECORD_SOURCE
+    FROM source s
+    {% if is_incremental() %}
+    LEFT JOIN {{ this }} t
+      ON t.CUSTOMER_PK = s.CUSTOMER_PK
+    WHERE t.CUSTOMER_PK IS NULL
+    {% endif %}
 )
 
-SELECT DISTINCT
-    CUSTOMER_PK,
-    CUSTOMER_ID,
-    LOAD_DATE,
-    RECORD_SOURCE
-FROM source
-
-{% if is_incremental() %}
-    WHERE LOAD_DATE > (
-        SELECT COALESCE(MAX(LOAD_DATE), DATE('1900-01-01'))
-        FROM {{ this }}
-    )
-{% endif %}
+SELECT *
+FROM to_insert

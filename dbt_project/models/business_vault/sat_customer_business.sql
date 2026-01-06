@@ -46,9 +46,11 @@ filtered AS (
         FROM {{ this }}
     )
     {% endif %}
-),
+)
 
-latest AS (
+{% if is_incremental() %}
+
+, latest AS (
     SELECT
         CUSTOMER_PK,
         HASHDIFF_BIZ
@@ -73,3 +75,14 @@ QUALIFY ROW_NUMBER() OVER (
     PARTITION BY CUSTOMER_PK, HASHDIFF_BIZ
     ORDER BY LOAD_DATE
 ) = 1
+
+{% else %}
+
+SELECT *
+FROM filtered
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY CUSTOMER_PK, HASHDIFF_BIZ
+    ORDER BY LOAD_DATE
+) = 1
+
+{% endif %}
